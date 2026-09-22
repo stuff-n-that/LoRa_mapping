@@ -19,6 +19,17 @@ import { fetchMeshtasticNodes } from '../src/api/meshtasticLive.js'
 
 const outPath = process.argv[2] || 'live-nodes-snapshot.json'
 
+// Backstop in case the recently-active filter in meshcoreLive.js/
+// meshtasticLive.js still leaves more than a browser (especially on
+// mobile) can comfortably download and parse in one go. Keeps the
+// most-recently-active nodes per network.
+const MAX_NODES_PER_NETWORK = 5000
+
+function capToMostRecent(nodes, max) {
+  if (nodes.length <= max) return nodes
+  return [...nodes].sort((a, b) => new Date(b.lastSeen || 0) - new Date(a.lastSeen || 0)).slice(0, max)
+}
+
 async function main() {
   const [meshcoreResult, meshtasticResult] = await Promise.allSettled([
     fetchMeshcoreNodes(),
@@ -28,15 +39,17 @@ async function main() {
   const nodes = []
 
   if (meshcoreResult.status === 'fulfilled') {
-    nodes.push(...meshcoreResult.value)
-    console.log(`MeshCore: ${meshcoreResult.value.length} nodes`)
+    const capped = capToMostRecent(meshcoreResult.value, MAX_NODES_PER_NETWORK)
+    nodes.push(...capped)
+    console.log(`MeshCore: ${meshcoreResult.value.length} active nodes${capped.length < meshcoreResult.value.length ? ` (capped to ${capped.length} most recent)` : ''}`)
   } else {
     console.error(`MeshCore fetch failed: ${meshcoreResult.reason.message}`)
   }
 
   if (meshtasticResult.status === 'fulfilled') {
-    nodes.push(...meshtasticResult.value)
-    console.log(`Meshtastic: ${meshtasticResult.value.length} nodes`)
+    const capped = capToMostRecent(meshtasticResult.value, MAX_NODES_PER_NETWORK)
+    nodes.push(...capped)
+    console.log(`Meshtastic: ${meshtasticResult.value.length} active nodes${capped.length < meshtasticResult.value.length ? ` (capped to ${capped.length} most recent)` : ''}`)
   } else {
     console.error(`Meshtastic fetch failed: ${meshtasticResult.reason.message}`)
   }
