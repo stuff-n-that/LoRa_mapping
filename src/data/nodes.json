@@ -1,0 +1,42 @@
+[
+  {
+    "id": "sample-meshcore-1",
+    "name": "Example MeshCore Node — London",
+    "network": "meshcore",
+    "lat": 51.5074,
+    "lng": -0.1278,
+    "hardware": "Heltec V3",
+    "notes": "Sample data. Replace or delete via the + button, or import your own nodes.json.",
+    "lastSeen": ""
+  },
+  {
+    "id": "sample-meshcore-2",
+    "name": "Example MeshCore Repeater — Manchester",
+    "network": "meshcore",
+    "lat": 53.4808,
+    "lng": -2.2426,
+    "hardware": "T-Deck",
+    "notes": "Sample data.",
+    "lastSeen": ""
+  },
+  {
+    "id": "sample-meshtastic-1",
+    "name": "Example Meshtastic Node — San Francisco",
+    "network": "meshtastic",
+    "lat": 37.7749,
+    "lng": -122.4194,
+    "hardware": "T-Beam",
+    "notes": "Sample data. Replace or delete via the + button, or import your own nodes.json.",
+    "lastSeen": ""
+  },
+  {
+    "id": "sample-meshtastic-2",
+    "name": "Example Meshtastic Node — Sydney",
+    "network": "meshtastic",
+    "lat": -33.8688,
+    "lng": 151.2093,
+    "hardware": "RAK4631",
+    "notes": "Sample data.",
+    "lastSeen": ""
+  }
+]
