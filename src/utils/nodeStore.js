@@ -56,8 +56,11 @@ export function readNodesFromFile(file) {
     reader.onload = () => {
       try {
         const parsed = JSON.parse(reader.result)
-        if (!Array.isArray(parsed)) throw new Error('Expected a JSON array of nodes')
-        const valid = parsed.every(
+        // Accepts a bare array (Export's own format) or { nodes: [...] }
+        // (pull-live-nodes.mjs's format, which also carries generatedAt).
+        const nodeList = Array.isArray(parsed) ? parsed : parsed?.nodes
+        if (!Array.isArray(nodeList)) throw new Error('Expected a JSON array of nodes, or { "nodes": [...] }')
+        const valid = nodeList.every(
           (n) =>
             n &&
             typeof n.lat === 'number' &&
@@ -66,7 +69,7 @@ export function readNodesFromFile(file) {
         )
         if (!valid) throw new Error('Each node needs lat, lng (numbers) and network ("meshcore" or "meshtastic")')
         resolve(
-          parsed.map((n) => ({
+          nodeList.map((n) => ({
             id: n.id || crypto.randomUUID(),
             name: n.name || 'Unnamed node',
             network: n.network,

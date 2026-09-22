@@ -1,16 +1,10 @@
+import { formatAgo } from '../utils/format'
+
 function statusText(live) {
   if (live.status === 'loading' && !live.updatedAt) return 'loading…'
   if (live.status === 'error') return `error: ${live.error}`
   if (live.status === 'ready') return `${live.nodes.length} nodes · updated ${formatAgo(live.updatedAt)}`
   return 'off'
-}
-
-function formatAgo(date) {
-  if (!date) return ''
-  const seconds = Math.max(0, Math.round((Date.now() - date.getTime()) / 1000))
-  if (seconds < 60) return `${seconds}s ago`
-  const minutes = Math.round(seconds / 60)
-  return `${minutes}m ago`
 }
 
 function LiveSourceRow({ label, enabled, onToggle, live }) {

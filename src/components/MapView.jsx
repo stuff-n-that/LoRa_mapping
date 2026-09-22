@@ -34,9 +34,11 @@ function NodePopup({ node, onDelete }) {
         <div style={{ fontSize: 11, opacity: 0.6, marginTop: 4 }}>
           {node.lat.toFixed(5)}, {node.lng.toFixed(5)}
         </div>
-        {node.source === 'live' ? (
+        {node.source !== 'manual' ? (
           <div style={{ fontSize: 11, opacity: 0.6, marginTop: 8, fontStyle: 'italic' }}>
-            Live data — refreshes automatically, not editable
+            {node.source === 'snapshot'
+              ? 'Snapshot data — refreshed periodically via CI, not editable'
+              : 'Live data — refreshes automatically, not editable'}
           </div>
         ) : (
           <button

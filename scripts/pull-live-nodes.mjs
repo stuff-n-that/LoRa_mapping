@@ -1,6 +1,10 @@
 #!/usr/bin/env node
 // Fetches current node data from the MeshCore and Meshtastic public APIs and
-// writes it to a JSON file you can load into the map via the "Import" button.
+// writes it to a JSON file. Two uses:
+//   1. Load it into the map yourself via the "Import" button.
+//   2. Run as part of the GitHub Pages build (see .github/workflows/deploy.yml)
+//      to embed a periodically-refreshed snapshot as a static file the
+//      frontend loads automatically on startup.
 //
 // Runs server-side (Node, not a browser) so it isn't subject to the CORS
 // restrictions that block these same fetches from the deployed GitHub Pages
@@ -8,7 +12,8 @@
 //
 // Usage: node scripts/pull-live-nodes.mjs [output-path]
 
-import { writeFile } from 'node:fs/promises'
+import { mkdir, writeFile } from 'node:fs/promises'
+import { dirname } from 'node:path'
 import { fetchMeshcoreNodes } from '../src/api/meshcoreLive.js'
 import { fetchMeshtasticNodes } from '../src/api/meshtasticLive.js'
 
@@ -42,7 +47,9 @@ async function main() {
     return
   }
 
-  await writeFile(outPath, JSON.stringify(nodes, null, 2))
+  const output = { generatedAt: new Date().toISOString(), nodes }
+  await mkdir(dirname(outPath), { recursive: true })
+  await writeFile(outPath, JSON.stringify(output, null, 2))
   console.log(`\nWrote ${nodes.length} nodes to ${outPath}`)
   console.log('Load them into the map with the "Import" button in the toolbar.')
 }
