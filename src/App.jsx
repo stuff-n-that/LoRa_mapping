@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import MapView from './components/MapView'
 import Toolbar from './components/Toolbar'
+import LiveDataPanel from './components/LiveDataPanel'
 import AddNodeModal from './components/AddNodeModal'
 import {
   loadNodes,
@@ -10,6 +11,9 @@ import {
   downloadNodesAsFile,
   readNodesFromFile,
 } from './utils/nodeStore'
+import { useLiveNodes } from './hooks/useLiveNodes'
+import { fetchMeshcoreNodes } from './api/meshcoreLive'
+import { fetchMeshtasticNodes } from './api/meshtasticLive'
 import './App.css'
 
 export default function App() {
@@ -17,6 +21,16 @@ export default function App() {
   const [pickMode, setPickMode] = useState(false)
   const [pendingLatLng, setPendingLatLng] = useState(null)
   const [importError, setImportError] = useState('')
+  const [meshcoreLiveOn, setMeshcoreLiveOn] = useState(false)
+  const [meshtasticLiveOn, setMeshtasticLiveOn] = useState(false)
+
+  const meshcoreLive = useLiveNodes(fetchMeshcoreNodes, { enabled: meshcoreLiveOn })
+  const meshtasticLive = useLiveNodes(fetchMeshtasticNodes, { enabled: meshtasticLiveOn })
+
+  const allNodes = useMemo(
+    () => [...nodes, ...meshcoreLive.nodes, ...meshtasticLive.nodes],
+    [nodes, meshcoreLive.nodes, meshtasticLive.nodes],
+  )
 
   useEffect(() => {
     persistNodes(nodes)
@@ -51,15 +65,25 @@ export default function App() {
 
   return (
     <div className="app">
-      <Toolbar
-        pickMode={pickMode}
-        onStartPick={() => setPickMode(true)}
-        onCancelPick={() => setPickMode(false)}
-        onImport={handleImport}
-        onExport={() => downloadNodesAsFile(nodes)}
-        onReset={handleReset}
-        nodeCount={nodes.length}
-      />
+      <div className="top-stack">
+        <Toolbar
+          pickMode={pickMode}
+          onStartPick={() => setPickMode(true)}
+          onCancelPick={() => setPickMode(false)}
+          onImport={handleImport}
+          onExport={() => downloadNodesAsFile(nodes)}
+          onReset={handleReset}
+          nodeCount={nodes.length}
+        />
+        <LiveDataPanel
+          meshcoreLive={meshcoreLive}
+          meshtasticLive={meshtasticLive}
+          meshcoreOn={meshcoreLiveOn}
+          meshtasticOn={meshtasticLiveOn}
+          onToggleMeshcore={setMeshcoreLiveOn}
+          onToggleMeshtastic={setMeshtasticLiveOn}
+        />
+      </div>
 
       {importError && (
         <div className="import-error" onClick={() => setImportError('')}>
@@ -68,7 +92,7 @@ export default function App() {
       )}
 
       <MapView
-        nodes={nodes}
+        nodes={allNodes}
         pickMode={pickMode}
         onPick={handlePick}
         pendingLatLng={pendingLatLng}

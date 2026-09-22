@@ -7,7 +7,8 @@
     "lng": -0.1278,
     "hardware": "Heltec V3",
     "notes": "Sample data. Replace or delete via the + button, or import your own nodes.json.",
-    "lastSeen": ""
+    "lastSeen": "",
+    "source": "manual"
   },
   {
     "id": "sample-meshcore-2",
@@ -17,7 +18,8 @@
     "lng": -2.2426,
     "hardware": "T-Deck",
     "notes": "Sample data.",
-    "lastSeen": ""
+    "lastSeen": "",
+    "source": "manual"
   },
   {
     "id": "sample-meshtastic-1",
@@ -27,7 +29,8 @@
     "lng": -122.4194,
     "hardware": "T-Beam",
     "notes": "Sample data. Replace or delete via the + button, or import your own nodes.json.",
-    "lastSeen": ""
+    "lastSeen": "",
+    "source": "manual"
   },
   {
     "id": "sample-meshtastic-2",
@@ -37,6 +40,7 @@
     "lng": 151.2093,
     "hardware": "RAK4631",
     "notes": "Sample data.",
-    "lastSeen": ""
+    "lastSeen": "",
+    "source": "manual"
   }
 ]

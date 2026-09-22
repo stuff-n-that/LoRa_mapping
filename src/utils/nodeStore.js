@@ -30,6 +30,7 @@ export function createNode({ name, network, lat, lng, hardware, notes }) {
     hardware: hardware?.trim() || '',
     notes: notes?.trim() || '',
     lastSeen: '',
+    source: 'manual',
   }
 }
 
@@ -74,6 +75,7 @@ export function readNodesFromFile(file) {
             hardware: n.hardware || '',
             notes: n.notes || '',
             lastSeen: n.lastSeen || '',
+            source: 'manual',
           })),
         )
       } catch (err) {

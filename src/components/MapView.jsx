@@ -34,21 +34,27 @@ function NodePopup({ node, onDelete }) {
         <div style={{ fontSize: 11, opacity: 0.6, marginTop: 4 }}>
           {node.lat.toFixed(5)}, {node.lng.toFixed(5)}
         </div>
-        <button
-          onClick={() => onDelete(node.id)}
-          style={{
-            marginTop: 8,
-            fontSize: 12,
-            color: '#c0392b',
-            background: 'none',
-            border: '1px solid #c0392b',
-            borderRadius: 4,
-            padding: '3px 8px',
-            cursor: 'pointer',
-          }}
-        >
-          Delete node
-        </button>
+        {node.source === 'live' ? (
+          <div style={{ fontSize: 11, opacity: 0.6, marginTop: 8, fontStyle: 'italic' }}>
+            Live data — refreshes automatically, not editable
+          </div>
+        ) : (
+          <button
+            onClick={() => onDelete(node.id)}
+            style={{
+              marginTop: 8,
+              fontSize: 12,
+              color: '#c0392b',
+              background: 'none',
+              border: '1px solid #c0392b',
+              borderRadius: 4,
+              padding: '3px 8px',
+              cursor: 'pointer',
+            }}
+          >
+            Delete node
+          </button>
+        )}
       </div>
     </Popup>
   )
@@ -93,7 +99,7 @@ export default function MapView({ nodes, pickMode, onPick, pendingLatLng, onDele
         <Overlay checked name="MeshCore nodes">
           <LayerGroup>
             {meshcoreNodes.map((node) => (
-              <Marker key={node.id} position={[node.lat, node.lng]} icon={nodeIcon('meshcore')}>
+              <Marker key={node.id} position={[node.lat, node.lng]} icon={nodeIcon('meshcore', node.source)}>
                 <NodePopup node={node} onDelete={onDeleteNode} />
               </Marker>
             ))}
@@ -103,7 +109,7 @@ export default function MapView({ nodes, pickMode, onPick, pendingLatLng, onDele
         <Overlay checked name="Meshtastic nodes">
           <LayerGroup>
             {meshtasticNodes.map((node) => (
-              <Marker key={node.id} position={[node.lat, node.lng]} icon={nodeIcon('meshtastic')}>
+              <Marker key={node.id} position={[node.lat, node.lng]} icon={nodeIcon('meshtastic', node.source)}>
                 <NodePopup node={node} onDelete={onDeleteNode} />
               </Marker>
             ))}
