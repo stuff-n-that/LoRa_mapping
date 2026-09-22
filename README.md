@@ -24,7 +24,7 @@ npm run preview   # preview the production build
 
 ## Deployment
 
-A GitHub Actions workflow (`.github/workflows/deploy.yml`) builds and deploys `dist/` to GitHub Pages on every push to `main`. In the repo settings, set **Pages → Source** to **GitHub Actions**. The site will be served at `/lora_mapping/`, matching the `base` path in `vite.config.js`.
+A GitHub Actions workflow (`.github/workflows/deploy.yml`) builds and deploys `dist/` to GitHub Pages on every push to `main`. In the repo settings, set **Pages → Source** to **GitHub Actions**. The site will be served at `/LoRa_mapping/`, matching the `base` path in `vite.config.js`.
 
 ## Data model
 
