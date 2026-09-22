@@ -10,6 +10,7 @@ A mobile- and desktop-friendly web map for plotting **MeshCore** and **Meshtasti
 - **Import/export**: back up or share your node list as JSON (`Export`), or load one (`Import`). Data persists locally in the browser (`localStorage`).
 - **Live data**: toggle "MeshCore" / "Meshtastic" in the Live data panel to overlay real node positions from public community maps, auto-refreshed every 5 minutes (see [Live data feeds](#live-data-feeds) below). Live nodes get a dashed marker border and aren't editable/deletable — they just refresh. On GitHub Pages this currently errors (CORS — see below); a periodically-refreshed snapshot is shown automatically instead, when one has been embedded in the build.
 - **Mobile friendly**: full-height responsive layout, touch-sized controls, works on phones, tablets, and desktop.
+- **Clustered markers**: MeshCore and Meshtastic overlays cluster nearby nodes into a bubble showing the count, expanding as you zoom in (`disableClusteringAtZoom={14}`). Real data from the two networks combined is 80,000+ nodes — this isn't optional polish, it's what keeps the map from hanging or crashing at that scale, especially on mobile.
 
 Ships with a small set of clearly-labelled sample nodes so the map isn't empty on first load — replace them via `Import`, the `+ Add node` button, or `Reset sample data`.
 
