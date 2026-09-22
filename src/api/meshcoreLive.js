@@ -1,9 +1,12 @@
 import { unpack } from 'msgpackr'
+import { fetchFromLiveProxy } from './liveProxy.js'
 
 // Reverse-engineered from the official MeshCore map frontend
-// (github.com/meshcore-dev/map.meshcore.io, src/map.js). That app runs on
-// map.meshcore.io and fetches from map.meshcore.dev — a different origin —
-// so the endpoint already serves CORS headers for cross-site browser fetches.
+// (github.com/meshcore-dev/map.meshcore.io, src/map.js), which runs on
+// map.meshcore.io and fetches this same endpoint from map.meshcore.dev.
+// In production this rejects our GitHub Pages origin (see README) — the
+// VITE_LIVE_PROXY branch below is the real fix; this direct fetch stays as
+// the fallback and is what actually runs from Node (scripts, server/).
 const MESHCORE_API_URL = 'https://map.meshcore.dev/api/v1/nodes?binary=1&short=1'
 
 // The API returns MessagePack with abbreviated keys (the "short=1" flag) to
@@ -62,6 +65,11 @@ function normalize(raw) {
 }
 
 export async function fetchMeshcoreNodes({ signal } = {}) {
+  // import.meta.env only exists in a Vite-built browser bundle, so this
+  // branch is unreachable from the pull-live-nodes script or the local
+  // server — both always fetch upstream directly, which is the point.
+  if (import.meta.env?.VITE_LIVE_PROXY === 'true') return fetchFromLiveProxy('meshcore', signal)
+
   const res = await fetch(MESHCORE_API_URL, { signal })
   if (!res.ok) throw new Error(`MeshCore API responded ${res.status}`)
   const buffer = await res.arrayBuffer()

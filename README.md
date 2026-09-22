@@ -57,8 +57,18 @@ Manual/imported nodes and live nodes are merged on the map but kept separate: li
 
 Both integrations were built by reading the linked open-source frontends' code rather than from official public API docs (neither project publishes one), so field names or response shapes may drift if those projects change. If a live feed breaks, check the linked source repos for what changed.
 
-### Toward a real local/server deployment
+### Running as a local server (real live data, no CORS issue)
 
-The clean fix for the CORS problem is a small server-side proxy: run `pull-live-nodes.mjs`-style fetches on a timer inside a Node/Express backend, serve the merged result as JSON from the same origin as the frontend, and have the browser poll *that* instead of `map.meshcore.dev`/`meshtastic.liamcottle.net` directly. Server-to-server requests aren't subject to CORS at all. That backend is also naturally where you'd self-host this as a local tool instead of (or alongside) GitHub Pages. Not built yet — ask if you want it scaffolded.
+`server/index.js` is a minimal Node server (built-ins only, no framework) that serves the built frontend *and* proxies both live-data APIs itself. Since the fetch to `map.meshcore.dev`/`meshtastic.liamcottle.net` happens server-side, CORS doesn't apply — the browser only ever talks to this server, same-origin.
+
+```bash
+npm run build:server   # builds the frontend with VITE_LIVE_PROXY=true and a root ('/') base path
+npm run server          # serves dist/ plus /api/live-nodes/{meshcore,meshtastic}
+# or just: npm start    # does both
+```
+
+Then open `http://localhost:5175` (override with `PORT=1234 npm run server`). The server lazily refreshes each source's cache at most every 5 minutes — only on request, so an idle server does no polling — and keeps serving the last-known nodes alongside any new error rather than blanking the map on a transient upstream failure.
+
+This is a separate build target from `npm run build` (GitHub Pages): that one bakes in the `/LoRa_mapping/` base path and talks to the upstream APIs directly from the browser (works only if/when those APIs allow the Pages origin — see above). Don't serve a `build:server` output from GitHub Pages or vice versa; the base paths and live-data wiring are incompatible.
 
 Other sites from the original brief — [MeshCore Coverage](https://meshcore.co.uk/coverage.html), [NoDakMesh](https://nodakmesh.org/meshcore/map), [Meshtastic Map (friendlydev)](https://meshtastic-map.friendlydev.com/), [MeshMap.net](https://meshmap.net/) — were not wired up. `friendlydev` and NoDakMesh appear to aggregate from the same underlying sources already included; MeshMap.net's documented API (`docs.meshmap.com`) requires an API key/JWT rather than being open for anonymous cross-site fetches, and the coverage layer (predicted RF coverage, not live nodes) would be a separate, larger effort. Adding any of these later means finding their actual data endpoint (usually only discoverable from source, not docs) and adding a new file under `src/api/` following the same pattern.
