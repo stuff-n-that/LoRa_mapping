@@ -1,5 +1,6 @@
 import { unpack } from 'msgpackr'
 import { fetchFromLiveProxy } from './liveProxy.js'
+import { isRecentlyActive } from './activeNode.js'
 
 // Reverse-engineered from the official MeshCore map frontend
 // (github.com/meshcore-dev/map.meshcore.io, src/map.js), which runs on
@@ -50,6 +51,9 @@ function normalize(raw) {
   const node = inflateNode(raw)
   if (typeof node.lat !== 'number' || typeof node.lon !== 'number') return null
 
+  const lastSeen = node.last_advert || node.updated_date || ''
+  if (!isRecentlyActive(lastSeen)) return null
+
   const publicKeyHex = toHex(node.public_key)
   return {
     id: `meshcore-live-${publicKeyHex || node.adv_name || Math.random()}`,
@@ -59,7 +63,7 @@ function normalize(raw) {
     lng: node.lon,
     hardware: NODE_TYPES[node.type] || '',
     notes: publicKeyHex ? `Public key: ${publicKeyHex.slice(0, 16)}…` : '',
-    lastSeen: node.last_advert || node.updated_date || '',
+    lastSeen,
     source: 'live',
   }
 }
