@@ -11,7 +11,7 @@ export function nodeIcon(network, source = 'manual') {
   const cacheKey = `${network}:${source}`
   if (cache.has(cacheKey)) return cache.get(cacheKey)
   const { color, label } = NETWORK_STYLE[network] || { color: '#cccccc', label: '?' }
-  const border = source === 'live' ? '2px dashed #f2f2f2' : '2px solid #0b0b0d'
+  const border = source !== 'manual' ? '2px dashed #f2f2f2' : '2px solid #0b0b0d'
   const icon = L.divIcon({
     className: 'node-marker',
     html: `<span style="

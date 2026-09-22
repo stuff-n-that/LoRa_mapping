@@ -8,7 +8,7 @@ A mobile- and desktop-friendly web map for plotting **MeshCore** and **Meshtasti
 - **Overlays**: MeshCore nodes and Meshtastic nodes, independently toggleable on/off via the same control.
 - **Add nodes**: tap "+ Add node", then tap the map to place a pin and fill in name, network, hardware, and notes.
 - **Import/export**: back up or share your node list as JSON (`Export`), or load one (`Import`). Data persists locally in the browser (`localStorage`).
-- **Live data**: toggle "MeshCore" / "Meshtastic" in the Live data panel to overlay real node positions from public community maps, auto-refreshed every 5 minutes (see [Live data feeds](#live-data-feeds) below). Live nodes get a dashed marker border and aren't editable/deletable — they just refresh.
+- **Live data**: toggle "MeshCore" / "Meshtastic" in the Live data panel to overlay real node positions from public community maps, auto-refreshed every 5 minutes (see [Live data feeds](#live-data-feeds) below). Live nodes get a dashed marker border and aren't editable/deletable — they just refresh. On GitHub Pages this currently errors (CORS — see below); a periodically-refreshed snapshot is shown automatically instead, when one has been embedded in the build.
 - **Mobile friendly**: full-height responsive layout, touch-sized controls, works on phones, tablets, and desktop.
 
 Ships with a small set of clearly-labelled sample nodes so the map isn't empty on first load — replace them via `Import`, the `+ Add node` button, or `Reset sample data`.
@@ -53,9 +53,15 @@ Manual/imported nodes and live nodes are merged on the map but kept separate: li
 
 **Both fail from the deployed GitHub Pages site in practice** — confirmed in production, not just theorized. The official `map.meshcore.io` frontend fetching cross-origin from `map.meshcore.dev` only proves CORS is open *for that specific origin*, not for arbitrary third-party sites like a GitHub Pages deployment; Meshtastic's API was always the more clearly at-risk one since it serves its own frontend same-origin. Both APIs most likely allow only their own known frontend origin, not ours. The panel shows a clear error rather than crashing — that graceful-degradation path works as intended — but real live data doesn't currently reach the deployed static site this way.
 
-**`npm run pull-live-nodes`** (`scripts/pull-live-nodes.mjs`) is the practical workaround: it calls the same `fetchMeshcoreNodes`/`fetchMeshtasticNodes` functions from Node instead of a browser, so CORS doesn't apply, and writes the results to `live-nodes-snapshot.json`. Load that file with the map's `Import` button for a real (if one-off, not live) snapshot. The eventual fix is a real backend — see below.
+**`npm run pull-live-nodes`** (`scripts/pull-live-nodes.mjs`) calls the same `fetchMeshcoreNodes`/`fetchMeshtasticNodes` functions from Node instead of a browser, so CORS doesn't apply, and writes `{ generatedAt, nodes }` to `live-nodes-snapshot.json` (or another path you pass as an argument). Load that file with the map's `Import` button for a real, manually-triggered snapshot.
 
 Both integrations were built by reading the linked open-source frontends' code rather than from official public API docs (neither project publishes one), so field names or response shapes may drift if those projects change. If a live feed breaks, check the linked source repos for what changed.
+
+### Automatic snapshot on GitHub Pages
+
+`.github/workflows/deploy.yml` runs `pull-live-nodes.mjs` before every build (`continue-on-error`, so a down API doesn't block a deploy) and writes it to `public/live-nodes-snapshot.json` — Vite copies anything in `public/` verbatim into `dist/`, so it ships as a static file at the site root. The frontend fetches it once on load (`App.jsx`) and merges it into the map as `source: 'snapshot'` nodes (same dashed-border treatment as live nodes, distinct popup text, not persisted or exported). The workflow also runs on a 30-minute `schedule`, independent of code changes, purely to refresh this file and redeploy.
+
+This means the GitHub Pages site shows real (if up to 30 minutes stale) node positions automatically, without the browser ever hitting the upstream APIs directly — the fetch happens once, in CI, on GitHub's own infrastructure. It's a middle ground between "fully live" (blocked by CORS on Pages) and "static seed data": not real-time, but not manual either.
 
 ### Running as a local server (real live data, no CORS issue)
 
