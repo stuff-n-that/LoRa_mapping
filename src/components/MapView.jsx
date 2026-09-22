@@ -3,12 +3,12 @@ import {
   MapContainer,
   TileLayer,
   LayersControl,
-  LayerGroup,
   Marker,
   Popup,
   ZoomControl,
   useMapEvents,
 } from 'react-leaflet'
+import MarkerClusterGroup from 'react-leaflet-cluster'
 import { nodeIcon, pendingIcon } from '../utils/icons'
 
 const { BaseLayer, Overlay } = LayersControl
@@ -99,23 +99,23 @@ export default function MapView({ nodes, pickMode, onPick, pendingLatLng, onDele
         </BaseLayer>
 
         <Overlay checked name="MeshCore nodes">
-          <LayerGroup>
+          <MarkerClusterGroup chunkedLoading maxClusterRadius={60} disableClusteringAtZoom={14}>
             {meshcoreNodes.map((node) => (
               <Marker key={node.id} position={[node.lat, node.lng]} icon={nodeIcon('meshcore', node.source)}>
                 <NodePopup node={node} onDelete={onDeleteNode} />
               </Marker>
             ))}
-          </LayerGroup>
+          </MarkerClusterGroup>
         </Overlay>
 
         <Overlay checked name="Meshtastic nodes">
-          <LayerGroup>
+          <MarkerClusterGroup chunkedLoading maxClusterRadius={60} disableClusteringAtZoom={14}>
             {meshtasticNodes.map((node) => (
               <Marker key={node.id} position={[node.lat, node.lng]} icon={nodeIcon('meshtastic', node.source)}>
                 <NodePopup node={node} onDelete={onDeleteNode} />
               </Marker>
             ))}
-          </LayerGroup>
+          </MarkerClusterGroup>
         </Overlay>
       </LayersControl>
 
