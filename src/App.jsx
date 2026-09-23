@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import MapView from './components/MapView'
 import Toolbar from './components/Toolbar'
 import LiveDataPanel from './components/LiveDataPanel'
+import RegionPicker from './components/RegionPicker'
 import AddNodeModal from './components/AddNodeModal'
 import {
   loadNodes,
@@ -24,26 +25,13 @@ export default function App() {
   const [meshcoreLiveOn, setMeshcoreLiveOn] = useState(false)
   const [meshtasticLiveOn, setMeshtasticLiveOn] = useState(false)
   const [snapshotNodes, setSnapshotNodes] = useState([])
-  const [snapshotGeneratedAt, setSnapshotGeneratedAt] = useState(null)
 
   const meshcoreLive = useLiveNodes(fetchMeshcoreNodes, { enabled: meshcoreLiveOn })
   const meshtasticLive = useLiveNodes(fetchMeshtasticNodes, { enabled: meshtasticLiveOn })
 
-  // Optional static snapshot embedded at build time by the "Refresh live node
-  // snapshot" step in .github/workflows/deploy.yml (node scripts/pull-live-nodes.mjs
-  // public/live-nodes-snapshot.json). Loaded once — it only changes on the next
-  // deploy — and simply absent (404, silently ignored) if that step never ran,
-  // e.g. in local dev.
-  useEffect(() => {
-    fetch(`${import.meta.env.BASE_URL}live-nodes-snapshot.json`)
-      .then((res) => (res.ok ? res.json() : null))
-      .then((data) => {
-        if (!data?.nodes) return
-        setSnapshotNodes(data.nodes.map((n) => ({ ...n, id: `snapshot-${n.id}`, source: 'snapshot' })))
-        setSnapshotGeneratedAt(data.generatedAt || null)
-      })
-      .catch(() => {})
-  }, [])
+  function handleRegionLoaded(regionNodes) {
+    setSnapshotNodes(regionNodes)
+  }
 
   const allNodes = useMemo(
     () => [...nodes, ...meshcoreLive.nodes, ...meshtasticLive.nodes, ...snapshotNodes],
@@ -92,9 +80,8 @@ export default function App() {
           onExport={() => downloadNodesAsFile(nodes)}
           onReset={handleReset}
           nodeCount={nodes.length}
-          snapshotCount={snapshotNodes.length}
-          snapshotGeneratedAt={snapshotGeneratedAt}
         />
+        <RegionPicker onNodesLoaded={handleRegionLoaded} />
         <LiveDataPanel
           meshcoreLive={meshcoreLive}
           meshtasticLive={meshtasticLive}

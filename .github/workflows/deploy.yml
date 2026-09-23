@@ -27,8 +27,8 @@ jobs:
           node-version: 20
           cache: npm
       - run: npm ci
-      - name: Fetch live node snapshot
-        run: node scripts/pull-live-nodes.mjs public/live-nodes-snapshot.json
+      - name: Fetch live node data, sharded by country
+        run: node scripts/pull-live-nodes.mjs public/regions
         continue-on-error: true # ship the deploy even if both upstream APIs are briefly down
       - run: npm run build
       - uses: actions/upload-pages-artifact@v3

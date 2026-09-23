@@ -8,7 +8,8 @@ A mobile- and desktop-friendly web map for plotting **MeshCore** and **Meshtasti
 - **Overlays**: MeshCore nodes and Meshtastic nodes, independently toggleable on/off via the same control.
 - **Add nodes**: tap "+ Add node", then tap the map to place a pin and fill in name, network, hardware, and notes.
 - **Import/export**: back up or share your node list as JSON (`Export`), or load one (`Import`). Data persists locally in the browser (`localStorage`).
-- **Live data**: toggle "MeshCore" / "Meshtastic" in the Live data panel to overlay real node positions from public community maps, auto-refreshed every 5 minutes (see [Live data feeds](#live-data-feeds) below). Live nodes get a dashed marker border and aren't editable/deletable — they just refresh. On GitHub Pages this currently errors (CORS — see below); a periodically-refreshed snapshot is shown automatically instead, when one has been embedded in the build.
+- **Live data**: toggle "MeshCore" / "Meshtastic" in the Live data panel to overlay real node positions from public community maps, auto-refreshed every 5 minutes (see [Live data feeds](#live-data-feeds) below). Live nodes get a dashed marker border and aren't editable/deletable — they just refresh. On GitHub Pages this currently errors (CORS — see below).
+- **Region picker**: the "Node data region" panel loads real node data for one country at a time from a periodically-refreshed, CI-fetched snapshot — see [Live data feeds](#live-data-feeds).
 - **Mobile friendly**: full-height responsive layout, touch-sized controls, works on phones, tablets, and desktop.
 - **Clustered markers**: MeshCore and Meshtastic overlays cluster nearby nodes into a bubble showing the count, expanding as you zoom in (`disableClusteringAtZoom={14}`). Real data from the two networks combined is 80,000+ nodes — this isn't optional polish, it's what keeps the map from hanging or crashing at that scale, especially on mobile.
 
@@ -54,17 +55,29 @@ Manual/imported nodes and live nodes are merged on the map but kept separate: li
 
 **Both fail from the deployed GitHub Pages site in practice** — confirmed in production, not just theorized. The official `map.meshcore.io` frontend fetching cross-origin from `map.meshcore.dev` only proves CORS is open *for that specific origin*, not for arbitrary third-party sites like a GitHub Pages deployment; Meshtastic's API was always the more clearly at-risk one since it serves its own frontend same-origin. Both APIs most likely allow only their own known frontend origin, not ours. The panel shows a clear error rather than crashing — that graceful-degradation path works as intended — but real live data doesn't currently reach the deployed static site this way.
 
-**`npm run pull-live-nodes`** (`scripts/pull-live-nodes.mjs`) calls the same `fetchMeshcoreNodes`/`fetchMeshtasticNodes` functions from Node instead of a browser, so CORS doesn't apply, and writes `{ generatedAt, nodes }` to `live-nodes-snapshot.json` (or another path you pass as an argument). Load that file with the map's `Import` button for a real, manually-triggered snapshot.
-
 Both integrations were built by reading the linked open-source frontends' code rather than from official public API docs (neither project publishes one), so field names or response shapes may drift if those projects change. If a live feed breaks, check the linked source repos for what changed.
 
-**Both APIs return full node history, not just currently-active nodes.** A real pull on 2026-09-22 came back with 63,658 MeshCore + 17,973 Meshtastic nodes. `src/api/activeNode.js` filters both sources to nodes with a last-seen/last-advert timestamp within the past 7 days (`fetchMeshcoreNodes`/`fetchMeshtasticNodes` apply this themselves, so it affects the interactive Live data toggles too, not just the CI snapshot) — that took MeshCore to 25,034 and barely touched Meshtastic (17,980). `pull-live-nodes.mjs` also has a `MAX_NODES_PER_NETWORK` safety backstop, but it's set high (30,000) specifically so it doesn't act as a realistic limiter: an earlier, lower cap (5,000, picking the *globally* most-recently-active nodes before slicing) silently gutted whole dense regions that just happened to have slightly older timestamps than nodes elsewhere, confirmed by comparing against meshcore.co.uk's own map for the same area — a real bug, not just a smaller sample. If the payload ever needs trimming again, prefer widening/narrowing `ACTIVE_WINDOW_MS` (uniform everywhere) over lowering this cap (geographically arbitrary).
+### Sharded by country, not filtered by time
 
-### Automatic snapshot on GitHub Pages
+Both APIs return full node history, not just currently-active nodes — a real pull came back with 63,658 MeshCore + 17,973 Meshtastic nodes globally. Two earlier approaches to keeping that manageable were both wrong in ways only visible once compared against the official MeshCore map for the same area:
 
-`.github/workflows/deploy.yml` runs `pull-live-nodes.mjs` before every build (`continue-on-error`, so a down API doesn't block a deploy) and writes it to `public/live-nodes-snapshot.json` — Vite copies anything in `public/` verbatim into `dist/`, so it ships as a static file at the site root. The frontend fetches it once on load (`App.jsx`) and merges it into the map as `source: 'snapshot'` nodes (same dashed-border treatment as live nodes, distinct popup text, not persisted or exported). The workflow also runs on a 30-minute `schedule`, independent of code changes, purely to refresh this file and redeploy.
+- Filtering to nodes seen in the last 7 days cut the total a lot, but there's no evidence the official map filters by recency at all — it likely just shows everything registered, so a time filter alone will always undercount versus it.
+- Capping to a fixed number of "most recently active" nodes globally is worse: sorting by timestamp with no regard for location can (and did) gut an entire dense region just because nodes elsewhere happened to have marginally newer timestamps, while leaving other regions untouched. Confirmed directly: the official map showed 175/108/306+ node clusters in Northern Europe where this app showed 3/4/18, for the same MeshCore layer.
 
-This means the GitHub Pages site shows real (if up to 30 minutes stale) node positions automatically, without the browser ever hitting the upstream APIs directly — the fetch happens once, in CI, on GitHub's own infrastructure. It's a middle ground between "fully live" (blocked by CORS on Pages) and "static seed data": not real-time, but not manual either.
+**`scripts/pull-live-nodes.mjs`** now fetches everything from both APIs, unfiltered, and shards it by country instead: `scripts/lib/countryLookup.mjs` assigns each node's lat/lng to a country using real boundary polygons (`world-atlas`'s 1:110m Natural Earth data + a standard ray-casting point-in-polygon test, not bounding boxes), and the script writes one file per country (`<output-dir>/<ISO-alpha-2>.json`, shape `{ generatedAt, country: { code, name }, nodes }`) plus an `index.json` listing every country that has data (`{ code, name, count }`). No node is ever dropped for being old or for losing an arbitrary global sort — the only way a node doesn't appear is if its coordinates don't resolve to any country (open ocean, mostly).
+
+```bash
+npm run pull-live-nodes              # writes to public/regions/ by default
+node scripts/pull-live-nodes.mjs some/other/dir
+```
+
+Load a specific country's file with the map's `Import` button for a manually-triggered, real snapshot of just that country.
+
+### Region picker + automatic refresh on GitHub Pages
+
+The "Node data region" panel (`src/components/RegionPicker.jsx`) fetches `regions/index.json` once on load to populate a country dropdown, then fetches just that one country's file when you pick it — replacing, not accumulating, if you switch. This is what actually keeps the page fast: the browser only ever downloads and parses one country's worth of nodes at a time, not a global blob, so there's no time-based filtering or count-based capping needed to keep it usable.
+
+`.github/workflows/deploy.yml` runs `pull-live-nodes.mjs` before every build (`continue-on-error`, so a down API doesn't block a deploy of actual code changes) and writes to `public/regions/` — Vite copies anything in `public/` verbatim into `dist/`, so it ships as static files at the site root. The workflow also runs on a 30-minute `schedule`, independent of code changes, purely to refresh this data and redeploy. So the GitHub Pages site has real (if up to 30 minutes stale) per-country node data available on demand, without the browser ever hitting the upstream APIs directly — the fetch happens once, in CI, on GitHub's own infrastructure.
 
 ### Running as a local server (real live data, no CORS issue)
 

@@ -1,5 +1,4 @@
 import { fetchFromLiveProxy } from './liveProxy.js'
-import { isRecentlyActive } from './activeNode.js'
 
 // Reverse-engineered from github.com/liamcottle/meshtastic-map (src/index.js,
 // prisma/schema.prisma). Uses the public community instance at
@@ -16,9 +15,6 @@ const POSITION_SCALE = 1e7
 function normalize(raw) {
   if (typeof raw.latitude !== 'number' || typeof raw.longitude !== 'number') return null
 
-  const lastSeen = raw.position_updated_at || raw.updated_at || ''
-  if (!isRecentlyActive(lastSeen)) return null
-
   const name = raw.long_name || raw.short_name || `Node ${raw.node_id}`
   return {
     id: `meshtastic-live-${raw.node_id}`,
@@ -28,7 +24,7 @@ function normalize(raw) {
     lng: raw.longitude / POSITION_SCALE,
     hardware: typeof raw.hardware_model === 'number' ? `Hardware model #${raw.hardware_model}` : '',
     notes: raw.short_name && raw.short_name !== name ? `Short name: ${raw.short_name}` : '',
-    lastSeen,
+    lastSeen: raw.position_updated_at || raw.updated_at || '',
     source: 'live',
   }
 }
