@@ -1,17 +1,6 @@
 import { useRef } from 'react'
-import { formatAgo } from '../utils/format'
 
-export default function Toolbar({
-  pickMode,
-  onStartPick,
-  onCancelPick,
-  onImport,
-  onExport,
-  onReset,
-  nodeCount,
-  snapshotCount,
-  snapshotGeneratedAt,
-}) {
+export default function Toolbar({ pickMode, onStartPick, onCancelPick, onImport, onExport, onReset, nodeCount }) {
   const fileInputRef = useRef(null)
 
   function handleImportClick() {
@@ -30,12 +19,6 @@ export default function Toolbar({
         <span>LoRa Mesh Map</span>
         <span className="toolbar-count">{nodeCount} nodes</span>
       </div>
-
-      {snapshotGeneratedAt && (
-        <div className="toolbar-snapshot">
-          + {snapshotCount} real nodes from a snapshot fetched {formatAgo(snapshotGeneratedAt)}
-        </div>
-      )}
 
       {pickMode ? (
         <div className="toolbar-hint">

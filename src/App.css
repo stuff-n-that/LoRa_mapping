@@ -17,7 +17,8 @@
 }
 
 .toolbar,
-.live-panel {
+.live-panel,
+.region-panel {
   background: rgba(27, 27, 31, 0.92);
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 10px;
@@ -39,12 +40,6 @@
   font-weight: 400;
   font-size: 12px;
   opacity: 0.65;
-}
-
-.toolbar-snapshot {
-  font-size: 12px;
-  color: #5fd88f;
-  margin-bottom: 8px;
 }
 
 .toolbar-actions {
@@ -133,6 +128,41 @@
 }
 
 .live-panel-note {
+  margin: 6px 0 0;
+  font-size: 11px;
+  opacity: 0.55;
+  max-width: 260px;
+}
+
+.region-panel-title {
+  font-weight: 700;
+  font-size: 13px;
+  margin-bottom: 6px;
+}
+
+.region-select {
+  width: 100%;
+  background: #17171a;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 6px;
+  padding: 8px 10px;
+  color: #f2f2f2;
+  font-size: 13px;
+  min-height: 40px;
+}
+
+.region-status {
+  margin: 6px 0 0;
+  font-size: 12px;
+  opacity: 0.75;
+}
+
+.region-status-error {
+  color: #ff8a8a;
+  opacity: 1;
+}
+
+.region-panel-note {
   margin: 6px 0 0;
   font-size: 11px;
   opacity: 0.55;
@@ -232,7 +262,8 @@
     flex: 1 1 auto;
   }
 
-  .live-panel-note {
+  .live-panel-note,
+  .region-panel-note {
     max-width: none;
   }
 }
