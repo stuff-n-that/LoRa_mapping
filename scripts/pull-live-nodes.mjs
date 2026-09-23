@@ -19,11 +19,18 @@ import { fetchMeshtasticNodes } from '../src/api/meshtasticLive.js'
 
 const outPath = process.argv[2] || 'live-nodes-snapshot.json'
 
-// Backstop in case the recently-active filter in meshcoreLive.js/
-// meshtasticLive.js still leaves more than a browser (especially on
-// mobile) can comfortably download and parse in one go. Keeps the
-// most-recently-active nodes per network.
-const MAX_NODES_PER_NETWORK = 5000
+// Pure safety backstop against a pathological upstream response (not a
+// realistic limiter under normal conditions) — real counts as of
+// 2026-09-22 were 25,034 MeshCore + 17,980 Meshtastic active nodes, both
+// comfortably under this. A LOWER cap was tried first (5,000/network) and
+// had to be reverted: sorting "most recent globally" before slicing is
+// geographically blind, so it silently gutted whole dense regions (e.g.
+// Northern Europe) that just happened to have slightly older timestamps
+// than nodes elsewhere — confirmed by comparing against meshcore.co.uk's
+// own map for the same area. Prefer widening ACTIVE_WINDOW_MS in
+// activeNode.js over lowering this if the payload ever needs trimming
+// again; it doesn't have this bias.
+const MAX_NODES_PER_NETWORK = 30000
 
 function capToMostRecent(nodes, max) {
   if (nodes.length <= max) return nodes
