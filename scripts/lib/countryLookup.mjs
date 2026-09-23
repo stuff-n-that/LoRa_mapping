@@ -56,8 +56,18 @@ function geometryBBox(geometry) {
   return bbox
 }
 
+// A few disputed territories (Kosovo, Somaliland, N. Cyprus in this
+// dataset) have no numeric ISO id at all — not even Natural Earth's usual
+// -99 placeholder — so f.id is JS `undefined` for them. Falling back to
+// f.id directly (rather than deriving a code from the name) previously
+// produced a literal "undefined.json" file, silently merging all such
+// territories' nodes together. A slugified name is stable and unique.
+function fallbackCode(name) {
+  return name.toUpperCase().replace(/[^A-Z]+/g, '-')
+}
+
 const countryFeatures = geojson.features.map((f) => ({
-  code: countries.numericToAlpha2(f.id) || f.id,
+  code: countries.numericToAlpha2(f.id) || fallbackCode(f.properties.name),
   name: f.properties.name,
   bbox: geometryBBox(f.geometry),
   polygons: geometryToPolygons(f.geometry),
