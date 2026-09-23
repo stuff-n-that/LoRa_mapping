@@ -95,4 +95,19 @@ Then open `http://localhost:5175` (override with `PORT=1234 npm run server`). Th
 
 This is a separate build target from `npm run build` (GitHub Pages): that one bakes in the `/LoRa_mapping/` base path and talks to the upstream APIs directly from the browser (works only if/when those APIs allow the Pages origin — see above). Don't serve a `build:server` output from GitHub Pages or vice versa; the base paths and live-data wiring are incompatible.
 
+### Ground-truth check against your own hardware (Meshtastic, work in progress)
+
+If you have a real Meshtastic node, `scripts/pull-local-node.mjs` reads its local node database directly (via `scripts/local-node/read_meshtastic_nodes.py`, using the standard `meshtastic` Python library — needs `pip install meshtastic` — over USB serial or your node's local Wi-Fi API) and compares the neighbours it hears **directly** (`hopsAway === 0`) against what the public community map claims for those same node IDs. Every directly-heard neighbour is reported as one of:
+
+- **matches the public map** at a plausible distance,
+- **not on the public map at all** (not necessarily wrong — they may not have opted into public reporting), or
+- **implausible distance** — the public map places them farther away than a single real-world LoRa hop plausibly reaches (`src/utils/checkPlausibility.js`, a haversine distance check against a generous, tunable cutoff — plain math, not an AI judgement call).
+
+```bash
+npm run pull-local-node -- --lat <your latitude> --lng <your longitude>                 # USB serial, auto-detect
+npm run pull-local-node -- --lat <your latitude> --lng <your longitude> --host 192.168.1.50   # Wi-Fi node
+```
+
+The data-shape logic (`src/api/meshtasticLocal.js`'s `normalizeLocalNodes`, and the plausibility check itself) is unit-verified against synthetic data mimicking `meshtastic-python`'s well-established `Interface.nodes` shape. **The device connection itself is not yet smoke-tested against real hardware** — there's no Meshtastic node reachable from this environment to test against, so expect to debug field names against whatever `meshtastic-python` version you actually install. Not yet wired into the map UI (no `source: 'local'` marker styling or on-screen toggle) — this is CLI-only for now, a starting point for when real hardware is available to validate and finish the UI against. MeshCore's equivalent isn't started: its local/companion protocol needs checking against the actual firmware source once real hardware is available, unlike Meshtastic's which is well-documented.
+
 Other sites from the original brief — [MeshCore Coverage](https://meshcore.co.uk/coverage.html), [NoDakMesh](https://nodakmesh.org/meshcore/map), [Meshtastic Map (friendlydev)](https://meshtastic-map.friendlydev.com/), [MeshMap.net](https://meshmap.net/) — were not wired up. `friendlydev` and NoDakMesh appear to aggregate from the same underlying sources already included; MeshMap.net's documented API (`docs.meshmap.com`) requires an API key/JWT rather than being open for anonymous cross-site fetches, and the coverage layer (predicted RF coverage, not live nodes) would be a separate, larger effort. Adding any of these later means finding their actual data endpoint (usually only discoverable from source, not docs) and adding a new file under `src/api/` following the same pattern.

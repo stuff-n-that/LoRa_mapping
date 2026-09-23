@@ -8,6 +8,7 @@
     "build": "vite build",
     "preview": "vite preview",
     "pull-live-nodes": "node scripts/pull-live-nodes.mjs",
+    "pull-local-node": "node scripts/pull-local-node.mjs",
     "build:server": "VITE_LIVE_PROXY=true vite build",
     "server": "node server/index.js",
     "start": "npm run build:server && npm run server"
