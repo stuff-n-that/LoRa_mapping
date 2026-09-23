@@ -20,7 +20,8 @@
 
 .toolbar,
 .live-panel,
-.region-panel {
+.region-panel,
+.node-type-panel {
   background: rgba(27, 27, 31, 0.92);
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 10px;
@@ -268,6 +269,33 @@
   max-width: 260px;
 }
 
+.node-type-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.node-type-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 2px;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.node-type-item input {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+}
+
+.node-type-note {
+  margin: 6px 0 0;
+  font-size: 11px;
+  opacity: 0.55;
+  max-width: 260px;
+}
+
 .import-error {
   position: absolute;
   top: 10px;
@@ -362,7 +390,8 @@
   }
 
   .live-panel-note,
-  .region-panel-note {
+  .region-panel-note,
+  .node-type-note {
     max-width: none;
   }
 }

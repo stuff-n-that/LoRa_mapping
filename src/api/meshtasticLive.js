@@ -1,4 +1,5 @@
 import { fetchFromLiveProxy } from './liveProxy.js'
+import { meshtasticRoleCategory } from '../utils/nodeRoles.js'
 
 // Reverse-engineered from github.com/liamcottle/meshtastic-map (src/index.js,
 // prisma/schema.prisma). Uses the public community instance at
@@ -26,6 +27,11 @@ function normalize(raw) {
     notes: raw.short_name && raw.short_name !== name ? `Short name: ${raw.short_name}` : '',
     lastSeen: raw.position_updated_at || raw.updated_at || '',
     source: 'live',
+    // raw.role is the numeric Meshtastic DeviceConfig.Role enum (0-12); the
+    // API also sends role_name (e.g. "ROUTER") alongside it — kept as-is for
+    // display since it's already human-readable, no local enum needed for that part.
+    roleCategory: meshtasticRoleCategory(raw.role),
+    roleRaw: raw.role_name || null,
   }
 }
 

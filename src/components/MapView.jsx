@@ -28,6 +28,7 @@ function NodePopup({ node, onDelete }) {
       <div style={{ minWidth: 180 }}>
         <strong>{node.name}</strong>
         <div style={{ fontSize: 12, opacity: 0.8, textTransform: 'capitalize' }}>{node.network}</div>
+        {node.roleRaw && <div style={{ fontSize: 12 }}>Type: {node.roleRaw}</div>}
         {node.hardware && <div style={{ fontSize: 12 }}>Hardware: {node.hardware}</div>}
         {node.lastSeen && <div style={{ fontSize: 12 }}>Last seen: {node.lastSeen}</div>}
         {node.notes && <div style={{ fontSize: 12, marginTop: 4 }}>{node.notes}</div>}

@@ -1,5 +1,6 @@
 import { unpack } from 'msgpackr'
 import { fetchFromLiveProxy } from './liveProxy.js'
+import { meshcoreRoleCategory } from '../utils/nodeRoles.js'
 
 // Reverse-engineered from the official MeshCore map frontend
 // (github.com/meshcore-dev/map.meshcore.io, src/map.js), which runs on
@@ -57,10 +58,15 @@ function normalize(raw) {
     network: 'meshcore',
     lat: node.lat,
     lng: node.lon,
-    hardware: NODE_TYPES[node.type] || '',
+    // MeshCore's API doesn't expose a real hardware model, only this same
+    // type value — kept out of `hardware` now that `roleRaw`/`roleCategory`
+    // cover it, so the popup doesn't show the same value twice.
+    hardware: '',
     notes: publicKeyHex ? `Public key: ${publicKeyHex.slice(0, 16)}…` : '',
     lastSeen: node.last_advert || node.updated_date || '',
     source: 'live',
+    roleCategory: meshcoreRoleCategory(node.type),
+    roleRaw: NODE_TYPES[node.type] || null,
   }
 }
 

@@ -3,7 +3,9 @@ import MapView from './components/MapView'
 import Toolbar from './components/Toolbar'
 import LiveDataPanel from './components/LiveDataPanel'
 import RegionPicker from './components/RegionPicker'
+import NodeTypeFilter from './components/NodeTypeFilter'
 import AddNodeModal from './components/AddNodeModal'
+import { ROLE_CATEGORIES } from './utils/nodeRoles'
 import {
   loadNodes,
   persistNodes,
@@ -25,6 +27,9 @@ export default function App() {
   const [meshcoreLiveOn, setMeshcoreLiveOn] = useState(false)
   const [meshtasticLiveOn, setMeshtasticLiveOn] = useState(false)
   const [snapshotNodes, setSnapshotNodes] = useState([])
+  const [enabledRoleCategories, setEnabledRoleCategories] = useState(
+    () => new Set(ROLE_CATEGORIES.map((c) => c.key)),
+  )
 
   const meshcoreLive = useLiveNodes(fetchMeshcoreNodes, { enabled: meshcoreLiveOn })
   const meshtasticLive = useLiveNodes(fetchMeshtasticNodes, { enabled: meshtasticLiveOn })
@@ -36,6 +41,14 @@ export default function App() {
   const allNodes = useMemo(
     () => [...nodes, ...meshcoreLive.nodes, ...meshtasticLive.nodes, ...snapshotNodes],
     [nodes, meshcoreLive.nodes, meshtasticLive.nodes, snapshotNodes],
+  )
+
+  // Only nodes that actually carry a role category (live/snapshot network
+  // data) are subject to this filter — manually added/imported nodes have
+  // no roleCategory field at all and always pass through untouched.
+  const visibleNodes = useMemo(
+    () => allNodes.filter((n) => !n.roleCategory || enabledRoleCategories.has(n.roleCategory)),
+    [allNodes, enabledRoleCategories],
   )
 
   useEffect(() => {
@@ -90,6 +103,7 @@ export default function App() {
           onToggleMeshcore={setMeshcoreLiveOn}
           onToggleMeshtastic={setMeshtasticLiveOn}
         />
+        <NodeTypeFilter enabledCategories={enabledRoleCategories} onChange={setEnabledRoleCategories} />
       </div>
 
       {importError && (
@@ -99,7 +113,7 @@ export default function App() {
       )}
 
       <MapView
-        nodes={allNodes}
+        nodes={visibleNodes}
         pickMode={pickMode}
         onPick={handlePick}
         pendingLatLng={pendingLatLng}
