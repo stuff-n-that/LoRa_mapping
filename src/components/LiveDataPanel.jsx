@@ -1,4 +1,5 @@
 import { formatAgo } from '../utils/format'
+import CollapsibleSection from './CollapsibleSection'
 
 function statusText(live) {
   if (live.status === 'loading' && !live.updatedAt) return 'loading…'
@@ -25,15 +26,17 @@ function LiveSourceRow({ label, enabled, onToggle, live }) {
 }
 
 export default function LiveDataPanel({ meshcoreLive, meshtasticLive, meshcoreOn, meshtasticOn, onToggleMeshcore, onToggleMeshtastic }) {
+  const onCount = [meshcoreOn, meshtasticOn].filter(Boolean).length
+  const summary = onCount > 0 ? `${onCount} on` : 'off'
+
   return (
-    <div className="live-panel">
-      <div className="live-panel-title">Live data</div>
+    <CollapsibleSection title="Live data" summary={summary} className="live-panel">
       <LiveSourceRow label="MeshCore" enabled={meshcoreOn} onToggle={onToggleMeshcore} live={meshcoreLive} />
       <LiveSourceRow label="Meshtastic" enabled={meshtasticOn} onToggle={onToggleMeshtastic} live={meshtasticLive} />
       <p className="live-panel-note">
         Best-effort feeds from public community maps, refreshed every 5 min. May be unavailable if the source is down or blocks
         cross-site requests.
       </p>
-    </div>
+    </CollapsibleSection>
   )
 }

@@ -11,6 +11,8 @@
   left: 10px;
   z-index: 1000;
   max-width: calc(100vw - 20px);
+  max-height: calc(100dvh - 20px);
+  overflow-y: auto;
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -83,10 +85,39 @@
   filter: brightness(1.1);
 }
 
-.live-panel-title {
+.panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  background: none;
+  border: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  padding: 0;
+  text-align: left;
+}
+
+.panel-header-title {
   font-weight: 700;
   font-size: 13px;
-  margin-bottom: 6px;
+}
+
+.panel-header-summary {
+  font-weight: 400;
+  opacity: 0.65;
+}
+
+.panel-chevron {
+  font-size: 11px;
+  opacity: 0.6;
+  margin-left: 10px;
+  flex-shrink: 0;
+}
+
+.panel-body {
+  margin-top: 8px;
 }
 
 .live-row {
@@ -134,13 +165,40 @@
   max-width: 260px;
 }
 
-.region-panel-title {
-  font-weight: 700;
-  font-size: 13px;
-  margin-bottom: 6px;
+.region-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 8px;
 }
 
-.region-select {
+.region-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  background: rgba(58, 160, 255, 0.15);
+  border: 1px solid rgba(58, 160, 255, 0.4);
+  border-radius: 999px;
+  padding: 4px 6px 4px 10px;
+  font-size: 12px;
+}
+
+.region-chip button {
+  background: none;
+  border: none;
+  color: inherit;
+  font-size: 15px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 2px 5px;
+  opacity: 0.7;
+}
+
+.region-chip button:hover {
+  opacity: 1;
+}
+
+.region-search {
   width: 100%;
   background: #17171a;
   border: 1px solid rgba(255, 255, 255, 0.15);
@@ -148,7 +206,48 @@
   padding: 8px 10px;
   color: #f2f2f2;
   font-size: 13px;
-  min-height: 40px;
+  min-height: 38px;
+  margin-bottom: 6px;
+}
+
+.region-list {
+  max-height: 200px;
+  overflow-y: auto;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 6px;
+}
+
+.region-list-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 10px;
+  font-size: 13px;
+  cursor: pointer;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.region-list-item:last-child {
+  border-bottom: none;
+}
+
+.region-list-item:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.region-list-item input {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+}
+
+.region-list-item span:first-of-type {
+  flex: 1;
+}
+
+.region-list-count {
+  opacity: 0.55;
+  font-size: 11px;
 }
 
 .region-status {
