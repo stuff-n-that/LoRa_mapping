@@ -33,27 +33,55 @@ function pointInPolygon(lng, lat, rings) {
   return inside
 }
 
-function pointInMultiPolygon(lng, lat, polygons) {
-  return polygons.some((polygon) => pointInPolygon(lng, lat, polygon))
-}
-
 function geometryToPolygons(geometry) {
   return geometry.type === 'Polygon' ? [geometry.coordinates] : geometry.coordinates
 }
 
-function geometryBBox(geometry) {
-  const bbox = [Infinity, Infinity, -Infinity, -Infinity]
-  for (const polygon of geometryToPolygons(geometry)) {
-    for (const ring of polygon) {
-      for (const [x, y] of ring) {
-        if (x < bbox[0]) bbox[0] = x
-        if (y < bbox[1]) bbox[1] = y
-        if (x > bbox[2]) bbox[2] = x
-        if (y > bbox[3]) bbox[3] = y
-      }
-    }
+// A handful of countries (Russia, Fiji here) have a polygon piece that
+// crosses the antimeridian (±180°) as a single ring, e.g. Russia's mainland
+// runs ...178, 179, -179, -178... in raw coordinates. A plain ray-cast
+// treats the "jump" from +179 to -179 as one edge spanning the *entire*
+// longitude range, which creates a false-positive match band at that
+// piece's latitude range across nearly every longitude on Earth — this
+// was reported as real Finland/Norway/UK/Germany/Romania nodes all coming
+// back tagged as Russia. Detected by having points on both sides of ±90°,
+// fixed by unwrapping longitudes < 0 onto a continuous 0–360 range (and
+// unwrapping the query point the same way before testing against it).
+function crossesAntimeridian(ring) {
+  let hasEast = false
+  let hasWest = false
+  for (const [x] of ring) {
+    if (x > 90) hasEast = true
+    if (x < -90) hasWest = true
   }
-  return bbox
+  return hasEast && hasWest
+}
+
+function unwrapLng(lng) {
+  return lng < 0 ? lng + 360 : lng
+}
+
+function ringBBox(ring, bbox) {
+  for (const [x, y] of ring) {
+    if (x < bbox[0]) bbox[0] = x
+    if (y < bbox[1]) bbox[1] = y
+    if (x > bbox[2]) bbox[2] = x
+    if (y > bbox[3]) bbox[3] = y
+  }
+}
+
+// Each polygon piece gets its own bbox and wrap state (rather than one
+// bbox for the whole, possibly-multi-piece, country) so a piece that
+// crosses the antimeridian doesn't blow out the bounding box — and
+// therefore the false-positive area — for the country's other pieces too.
+function preparePolygonPieces(geometry) {
+  return geometryToPolygons(geometry).map((rings) => {
+    const wraps = rings.some(crossesAntimeridian)
+    const preparedRings = wraps ? rings.map((ring) => ring.map(([x, y]) => [unwrapLng(x), y])) : rings
+    const bbox = [Infinity, Infinity, -Infinity, -Infinity]
+    for (const ring of preparedRings) ringBBox(ring, bbox)
+    return { rings: preparedRings, bbox, wraps }
+  })
 }
 
 // A few disputed territories (Kosovo, Somaliland, N. Cyprus in this
@@ -69,16 +97,18 @@ function fallbackCode(name) {
 const countryFeatures = geojson.features.map((f) => ({
   code: countries.numericToAlpha2(f.id) || fallbackCode(f.properties.name),
   name: f.properties.name,
-  bbox: geometryBBox(f.geometry),
-  polygons: geometryToPolygons(f.geometry),
+  pieces: preparePolygonPieces(f.geometry),
 }))
 
 export function getCountryForPoint(lat, lng) {
   for (const country of countryFeatures) {
-    const [minX, minY, maxX, maxY] = country.bbox
-    if (lng < minX || lng > maxX || lat < minY || lat > maxY) continue
-    if (pointInMultiPolygon(lng, lat, country.polygons)) {
-      return { code: country.code, name: country.name }
+    for (const piece of country.pieces) {
+      const testLng = piece.wraps ? unwrapLng(lng) : lng
+      const [minX, minY, maxX, maxY] = piece.bbox
+      if (testLng < minX || testLng > maxX || lat < minY || lat > maxY) continue
+      if (pointInPolygon(testLng, lat, piece.rings)) {
+        return { code: country.code, name: country.name }
+      }
     }
   }
   return null
