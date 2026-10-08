@@ -1,26 +1,9 @@
 import { useMemo } from 'react'
-import {
-  MapContainer,
-  TileLayer,
-  LayersControl,
-  Marker,
-  Popup,
-  ZoomControl,
-  useMapEvents,
-} from 'react-leaflet'
+import { MapContainer, TileLayer, LayersControl, Marker, Popup, ZoomControl } from 'react-leaflet'
 import MarkerClusterGroup from 'react-leaflet-cluster'
-import { nodeIcon, pendingIcon } from '../utils/icons'
+import { nodeIcon } from '../utils/icons'
 
 const { BaseLayer, Overlay } = LayersControl
-
-function ClickCatcher({ active, onPick }) {
-  useMapEvents({
-    click(e) {
-      if (active) onPick(e.latlng)
-    },
-  })
-  return null
-}
 
 function NodePopup({ node, onDelete }) {
   return (
@@ -63,7 +46,7 @@ function NodePopup({ node, onDelete }) {
   )
 }
 
-export default function MapView({ nodes, pickMode, onPick, pendingLatLng, onDeleteNode }) {
+export default function MapView({ nodes, onDeleteNode }) {
   const meshcoreNodes = useMemo(() => nodes.filter((n) => n.network === 'meshcore'), [nodes])
   const meshtasticNodes = useMemo(() => nodes.filter((n) => n.network === 'meshtastic'), [nodes])
 
@@ -76,7 +59,6 @@ export default function MapView({ nodes, pickMode, onPick, pendingLatLng, onDele
       style={{ height: '100%', width: '100%' }}
       zoomControl={false}
     >
-      <ClickCatcher active={pickMode} onPick={onPick} />
       <ZoomControl position="bottomright" />
 
       <LayersControl position="topright" collapsed>
@@ -119,8 +101,6 @@ export default function MapView({ nodes, pickMode, onPick, pendingLatLng, onDele
           </MarkerClusterGroup>
         </Overlay>
       </LayersControl>
-
-      {pendingLatLng && <Marker position={pendingLatLng} icon={pendingIcon()} />}
     </MapContainer>
   )
 }

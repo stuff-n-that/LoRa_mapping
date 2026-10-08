@@ -6,16 +6,13 @@ A mobile- and desktop-friendly web map for plotting **MeshCore** and **Meshtasti
 
 - **Base layers**: OpenStreetMap (streets), Esri World Imagery (satellite), OpenTopoMap (terrain) — switch via the layers control (top right).
 - **Overlays**: MeshCore nodes and Meshtastic nodes, independently toggleable on/off via the same control.
-- **Add nodes**: tap "+ Add node", then tap the map to place a pin and fill in name, network, hardware, and notes.
-- **Import/export**: back up or share your node list as JSON (`Export`), or load one (`Import`). Data persists locally in the browser (`localStorage`).
-- **Live data**: toggle "MeshCore" / "Meshtastic" in the Live data panel to overlay real node positions from public community maps, auto-refreshed every 5 minutes (see [Live data feeds](#live-data-feeds) below). Live nodes get a dashed marker border and aren't editable/deletable — they just refresh. On GitHub Pages this currently errors (CORS — see below).
 - **Region picker**: the "Node data region" panel loads real, per-country node data from a periodically-refreshed CI snapshot. Search to filter the country list, and select as many as you want — e.g. neighbouring countries to see cross-border coverage — data stays loaded until you remove it. See [Live data feeds](#live-data-feeds).
-- **Node type filter**: the "Node type" panel filters by device role — Repeater/Router, Client, Sensor/Tracker, Room Server, Other/Unknown — pick as many as you want. It's one shared filter across both networks: MeshCore's node type and Meshtastic's device role are two different enums from two unrelated projects, normalized into this one set (`src/utils/nodeRoles.js`) so there's a single control instead of two. Only applies to MeshCore/Meshtastic data (live or region snapshots); manually added/imported nodes have no role to filter on, so they're always shown. Any role value that doesn't map to a known category (missing, or from a future firmware version neither map knows about yet) falls into "Other/Unknown" rather than being silently dropped — that bucket is on by default.
-- **Collapsible panels**: the Live data, Node data region, and Node type panels all start collapsed (a one-line header with a live summary, e.g. "2 selected · 4,301 nodes") so they don't take over the screen on mobile — tap to expand. Loaded data stays active even while collapsed.
+- **Node type filter**: the "Node type" panel filters by device role — Repeater/Router, Client, Sensor/Tracker, Room Server, Other/Unknown — pick as many as you want. It's one shared filter across both networks: MeshCore's node type and Meshtastic's device role are two different enums from two unrelated projects, normalized into this one set (`src/utils/nodeRoles.js`) so there's a single control instead of two. Only applies to MeshCore/Meshtastic region data; sample nodes have no role to filter on, so they're always shown. Any role value that doesn't map to a known category (missing, or from a future firmware version neither map knows about yet) falls into "Other/Unknown" rather than being silently dropped — that bucket is on by default.
+- **Collapsible panels**: the Node data region and Node type panels both start collapsed (a one-line header with a live summary, e.g. "2 selected · 4,301 nodes") so they don't take over the screen on mobile — tap to expand. Loaded data stays active even while collapsed.
 - **Mobile friendly**: full-height responsive layout, touch-sized controls, works on phones, tablets, and desktop.
 - **Clustered markers**: MeshCore and Meshtastic overlays cluster nearby nodes into a bubble showing the count, expanding as you zoom in (`disableClusteringAtZoom={14}`). Real data from the two networks combined is 80,000+ nodes — this isn't optional polish, it's what keeps the map from hanging or crashing at that scale, especially on mobile.
 
-Ships with a small set of clearly-labelled sample nodes so the map isn't empty on first load — replace them via `Import`, the `+ Add node` button, or `Reset sample data`.
+Ships with a small set of clearly-labelled sample nodes so the map isn't empty on first load — each can be removed via its popup's "Delete node" button. There's no add/import/export/reset UI; the map is read-only aside from that.
 
 ## Development
 
@@ -49,13 +46,13 @@ Each node is a plain object:
 
 ## Live data feeds
 
-Manual/imported nodes and live nodes are merged on the map but kept separate: live nodes are fetched client-side, never written to `localStorage` or included in `Export`, and simply disappear if you turn their toggle off.
+Real node data never reaches the browser by a direct, interactive API call — there's no client-side live-data toggle. Instead, `src/api/meshcoreLive.js` and `src/api/meshtasticLive.js` are called **server-side**, by the scripts below, and the results ship to the frontend as static per-country JSON that the Region picker loads on demand.
 
-**MeshCore** (`src/api/meshcoreLive.js`) fetches directly from `map.meshcore.dev`, the backend behind the official [MeshCore Map](https://meshcore.co.uk/map.html) (source: [meshcore-dev/map.meshcore.io](https://github.com/meshcore-dev/map.meshcore.io)). The response is MessagePack with abbreviated field names (`?binary=1&short=1`), decoded client-side with `msgpackr` and re-inflated to full field names, mirroring the official frontend's own logic.
+**MeshCore** (`src/api/meshcoreLive.js`) fetches directly from `map.meshcore.dev`, the backend behind the official [MeshCore Map](https://meshcore.co.uk/map.html) (source: [meshcore-dev/map.meshcore.io](https://github.com/meshcore-dev/map.meshcore.io)). The response is MessagePack with abbreviated field names (`?binary=1&short=1`), decoded with `msgpackr` and re-inflated to full field names, mirroring the official frontend's own logic.
 
 **Meshtastic** (`src/api/meshtasticLive.js`) fetches from the public community instance at `meshtastic.liamcottle.net`, built on [liamcottle/meshtastic-map](https://github.com/liamcottle/meshtastic-map) (an Express + Prisma server fed by the public `mqtt.meshtastic.org` broker). Its `/api/v1/nodes` endpoint is documented in that repo's source.
 
-**Both fail from the deployed GitHub Pages site in practice** — confirmed in production, not just theorized. The official `map.meshcore.io` frontend fetching cross-origin from `map.meshcore.dev` only proves CORS is open *for that specific origin*, not for arbitrary third-party sites like a GitHub Pages deployment; Meshtastic's API was always the more clearly at-risk one since it serves its own frontend same-origin. Both APIs most likely allow only their own known frontend origin, not ours. The panel shows a clear error rather than crashing — that graceful-degradation path works as intended — but real live data doesn't currently reach the deployed static site this way.
+**Both fail if called from the browser on the deployed GitHub Pages site** — confirmed in production, not just theorized — which is exactly why these run server-side (in CI, see below) rather than as a direct toggle. The official `map.meshcore.io` frontend fetching cross-origin from `map.meshcore.dev` only proves CORS is open *for that specific origin*, not for arbitrary third-party sites like a GitHub Pages deployment; Meshtastic's API was always the more clearly at-risk one since it serves its own frontend same-origin. Both APIs most likely allow only their own known frontend origin, not ours.
 
 Both integrations were built by reading the linked open-source frontends' code rather than from official public API docs (neither project publishes one), so field names or response shapes may drift if those projects change. If a live feed breaks, check the linked source repos for what changed.
 
@@ -72,8 +69,6 @@ Both APIs return full node history, not just currently-active nodes — a real p
 npm run pull-live-nodes              # writes to public/regions/ by default
 node scripts/pull-live-nodes.mjs some/other/dir
 ```
-
-Load a specific country's file with the map's `Import` button for a manually-triggered, real snapshot of just that country.
 
 ### Region picker + automatic refresh on GitHub Pages
 
