@@ -1,13 +1,12 @@
-import { fetchFromLiveProxy } from './liveProxy.js'
 import { meshtasticRoleCategory } from '../utils/nodeRoles.js'
 
 // Reverse-engineered from github.com/liamcottle/meshtastic-map (src/index.js,
 // prisma/schema.prisma). Uses the public community instance at
 // meshtastic.liamcottle.net, which runs an Express API serving its own map
 // frontend from the SAME origin. Confirmed in production: it rejects our
-// GitHub Pages origin, same as MeshCore. This direct fetch is what actually
-// runs from Node (scripts, server/) — the VITE_LIVE_PROXY branch below is
-// what makes it work from a browser.
+// GitHub Pages origin, same as MeshCore. Only ever called server-side
+// (scripts/pull-live-nodes.mjs, scripts/pull-local-node.mjs) — never from
+// the browser.
 const MESHTASTIC_API_URL = 'https://meshtastic.liamcottle.net/api/v1/nodes'
 
 // Meshtastic protobuf positions are fixed-point ints: degrees * 1e7.
@@ -36,11 +35,6 @@ function normalize(raw) {
 }
 
 export async function fetchMeshtasticNodes({ signal } = {}) {
-  // import.meta.env only exists in a Vite-built browser bundle, so this
-  // branch is unreachable from the pull-live-nodes script or the local
-  // server — both always fetch upstream directly, which is the point.
-  if (import.meta.env?.VITE_LIVE_PROXY === 'true') return fetchFromLiveProxy('meshtastic', signal)
-
   const res = await fetch(MESHTASTIC_API_URL, { signal })
   if (!res.ok) throw new Error(`Meshtastic API responded ${res.status}`)
   const data = await res.json()
