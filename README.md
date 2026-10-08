@@ -4,8 +4,7 @@ A mobile- and desktop-friendly web map for plotting **MeshCore** and **Meshtasti
 
 ## Features
 
-- **Base layers**: OpenStreetMap (streets), Esri World Imagery (satellite), OpenTopoMap (terrain) — switch via the layers control (top right).
-- **Overlays**: MeshCore nodes and Meshtastic nodes, independently toggleable on/off via the same control.
+- **Map layers panel**: base map (OpenStreetMap streets, Esri World Imagery satellite, OpenTopoMap terrain) and the MeshCore/Meshtastic overlays, each independently toggleable — styled to match the rest of the panel stack rather than Leaflet's default layers control.
 - **Region picker**: the "Node data region" panel loads real, per-country node data from a periodically-refreshed CI snapshot. Search to filter the country list, and select as many as you want — e.g. neighbouring countries to see cross-border coverage — data stays loaded until you remove it. See [Live data feeds](#live-data-feeds).
 - **Node type filter**: the "Node type" panel filters by device role — Repeater/Router, Client, Sensor/Tracker, Room Server, Other/Unknown — pick as many as you want. It's one shared filter across both networks: MeshCore's node type and Meshtastic's device role are two different enums from two unrelated projects, normalized into this one set (`src/utils/nodeRoles.js`) so there's a single control instead of two. Only applies to MeshCore/Meshtastic region data; sample nodes have no role to filter on, so they're always shown. Any role value that doesn't map to a known category (missing, or from a future firmware version neither map knows about yet) falls into "Other/Unknown" rather than being silently dropped — that bucket is on by default.
 - **Collapsible panels**: the Node data region and Node type panels both start collapsed (a one-line header with a live summary, e.g. "2 selected · 4,301 nodes") so they don't take over the screen on mobile — tap to expand. Loaded data stays active even while collapsed.
