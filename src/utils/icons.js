@@ -27,16 +27,3 @@ export function nodeIcon(network, source = 'manual') {
   cache.set(cacheKey, icon)
   return icon
 }
-
-export function pendingIcon() {
-  return L.divIcon({
-    className: 'pending-marker',
-    html: `<span style="
-      display:flex;align-items:center;justify-content:center;
-      width:20px;height:20px;border-radius:50%;
-      background:#ffcf4d;border:2px dashed #0b0b0d;
-    "></span>`,
-    iconSize: [20, 20],
-    iconAnchor: [10, 10],
-  })
-}
