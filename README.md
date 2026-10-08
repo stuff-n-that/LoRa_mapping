@@ -76,20 +76,6 @@ The "Node data region" panel (`src/components/RegionPicker.jsx`) fetches `region
 
 `.github/workflows/deploy.yml` runs `pull-live-nodes.mjs` before every build (`continue-on-error`, so a down API doesn't block a deploy of actual code changes) and writes to `public/regions/` — Vite copies anything in `public/` verbatim into `dist/`, so it ships as static files at the site root. The workflow also runs on a 30-minute `schedule`, independent of code changes, purely to refresh this data and redeploy. So the GitHub Pages site has real (if up to 30 minutes stale) per-country node data available on demand, without the browser ever hitting the upstream APIs directly — the fetch happens once, in CI, on GitHub's own infrastructure.
 
-### Running as a local server (real live data, no CORS issue)
-
-`server/index.js` is a minimal Node server (built-ins only, no framework) that serves the built frontend *and* proxies both live-data APIs itself. Since the fetch to `map.meshcore.dev`/`meshtastic.liamcottle.net` happens server-side, CORS doesn't apply — the browser only ever talks to this server, same-origin.
-
-```bash
-npm run build:server   # builds the frontend with VITE_LIVE_PROXY=true and a root ('/') base path
-npm run server          # serves dist/ plus /api/live-nodes/{meshcore,meshtastic}
-# or just: npm start    # does both
-```
-
-Then open `http://localhost:5175` (override with `PORT=1234 npm run server`). The server lazily refreshes each source's cache at most every 5 minutes — only on request, so an idle server does no polling — and keeps serving the last-known nodes alongside any new error rather than blanking the map on a transient upstream failure.
-
-This is a separate build target from `npm run build` (GitHub Pages): that one bakes in the `/LoRa_mapping/` base path and talks to the upstream APIs directly from the browser (works only if/when those APIs allow the Pages origin — see above). Don't serve a `build:server` output from GitHub Pages or vice versa; the base paths and live-data wiring are incompatible.
-
 ### Ground-truth check against your own hardware (Meshtastic, work in progress)
 
 If you have a real Meshtastic node, `scripts/pull-local-node.mjs` reads its local node database directly (via `scripts/local-node/read_meshtastic_nodes.py`, using the standard `meshtastic` Python library — needs `pip install meshtastic` — over USB serial or your node's local Wi-Fi API) and compares the neighbours it hears **directly** (`hopsAway === 0`) against what the public community map claims for those same node IDs. Every directly-heard neighbour is reported as one of:
