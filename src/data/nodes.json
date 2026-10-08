@@ -6,7 +6,7 @@
     "lat": 51.5074,
     "lng": -0.1278,
     "hardware": "Heltec V3",
-    "notes": "Sample data. Replace or delete via the + button, or import your own nodes.json.",
+    "notes": "Sample data — delete via this popup if you don't want it shown.",
     "lastSeen": "",
     "source": "manual"
   },
@@ -28,7 +28,7 @@
     "lat": 37.7749,
     "lng": -122.4194,
     "hardware": "T-Beam",
-    "notes": "Sample data. Replace or delete via the + button, or import your own nodes.json.",
+    "notes": "Sample data — delete via this popup if you don't want it shown.",
     "lastSeen": "",
     "source": "manual"
   },

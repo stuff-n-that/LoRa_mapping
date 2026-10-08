@@ -1,9 +1,26 @@
 import { useMemo } from 'react'
-import { MapContainer, TileLayer, LayersControl, Marker, Popup, ZoomControl } from 'react-leaflet'
+import { MapContainer, TileLayer, Marker, Popup, ZoomControl } from 'react-leaflet'
 import MarkerClusterGroup from 'react-leaflet-cluster'
 import { nodeIcon } from '../utils/icons'
 
-const { BaseLayer, Overlay } = LayersControl
+// Base layer selection now lives in MapLayersPanel (styled to match the
+// rest of the app) instead of Leaflet's own default-styled LayersControl —
+// this is the tile source for whichever one is currently selected there.
+const BASE_LAYERS = {
+  streets: {
+    url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+  },
+  satellite: {
+    url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+    attribution: 'Tiles &copy; Esri &mdash; Source: Esri, Maxar, Earthstar Geographics, and the GIS User Community',
+  },
+  terrain: {
+    url: 'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',
+    attribution:
+      'Map data: &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, SRTM | Map style: &copy; <a href="https://opentopomap.org">OpenTopoMap</a> (CC-BY-SA)',
+  },
+}
 
 function NodePopup({ node, onDelete }) {
   return (
@@ -46,9 +63,10 @@ function NodePopup({ node, onDelete }) {
   )
 }
 
-export default function MapView({ nodes, onDeleteNode }) {
+export default function MapView({ nodes, onDeleteNode, baseLayer, showMeshcore, showMeshtastic }) {
   const meshcoreNodes = useMemo(() => nodes.filter((n) => n.network === 'meshcore'), [nodes])
   const meshtasticNodes = useMemo(() => nodes.filter((n) => n.network === 'meshtastic'), [nodes])
+  const layer = BASE_LAYERS[baseLayer] || BASE_LAYERS.streets
 
   return (
     <MapContainer
@@ -61,46 +79,29 @@ export default function MapView({ nodes, onDeleteNode }) {
     >
       <ZoomControl position="bottomright" />
 
-      <LayersControl position="topright" collapsed>
-        <BaseLayer checked name="Streets (OpenStreetMap)">
-          <TileLayer
-            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-          />
-        </BaseLayer>
-        <BaseLayer name="Satellite (Esri World Imagery)">
-          <TileLayer
-            attribution="Tiles &copy; Esri &mdash; Source: Esri, Maxar, Earthstar Geographics, and the GIS User Community"
-            url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
-          />
-        </BaseLayer>
-        <BaseLayer name="Terrain (OpenTopoMap)">
-          <TileLayer
-            attribution='Map data: &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, SRTM | Map style: &copy; <a href="https://opentopomap.org">OpenTopoMap</a> (CC-BY-SA)'
-            url="https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png"
-          />
-        </BaseLayer>
+      {/* key forces a clean remount on switch, rather than react-leaflet
+          patching the url of a live tile layer mid-flight. */}
+      <TileLayer key={baseLayer} attribution={layer.attribution} url={layer.url} />
 
-        <Overlay checked name="MeshCore nodes">
-          <MarkerClusterGroup chunkedLoading maxClusterRadius={60} disableClusteringAtZoom={14}>
-            {meshcoreNodes.map((node) => (
-              <Marker key={node.id} position={[node.lat, node.lng]} icon={nodeIcon('meshcore', node.source)}>
-                <NodePopup node={node} onDelete={onDeleteNode} />
-              </Marker>
-            ))}
-          </MarkerClusterGroup>
-        </Overlay>
+      {showMeshcore && (
+        <MarkerClusterGroup chunkedLoading maxClusterRadius={60} disableClusteringAtZoom={14}>
+          {meshcoreNodes.map((node) => (
+            <Marker key={node.id} position={[node.lat, node.lng]} icon={nodeIcon('meshcore', node.source)}>
+              <NodePopup node={node} onDelete={onDeleteNode} />
+            </Marker>
+          ))}
+        </MarkerClusterGroup>
+      )}
 
-        <Overlay checked name="Meshtastic nodes">
-          <MarkerClusterGroup chunkedLoading maxClusterRadius={60} disableClusteringAtZoom={14}>
-            {meshtasticNodes.map((node) => (
-              <Marker key={node.id} position={[node.lat, node.lng]} icon={nodeIcon('meshtastic', node.source)}>
-                <NodePopup node={node} onDelete={onDeleteNode} />
-              </Marker>
-            ))}
-          </MarkerClusterGroup>
-        </Overlay>
-      </LayersControl>
+      {showMeshtastic && (
+        <MarkerClusterGroup chunkedLoading maxClusterRadius={60} disableClusteringAtZoom={14}>
+          {meshtasticNodes.map((node) => (
+            <Marker key={node.id} position={[node.lat, node.lng]} icon={nodeIcon('meshtastic', node.source)}>
+              <NodePopup node={node} onDelete={onDeleteNode} />
+            </Marker>
+          ))}
+        </MarkerClusterGroup>
+      )}
     </MapContainer>
   )
 }
