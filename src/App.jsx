@@ -17,6 +17,10 @@ export default function App() {
   const [baseLayer, setBaseLayer] = useState('streets')
   const [showMeshcore, setShowMeshcore] = useState(true)
   const [showMeshtastic, setShowMeshtastic] = useState(true)
+  // Only affects layout below the mobile breakpoint (see .panels-drawer in
+  // App.css) — above it the panel stack is always visible and this button
+  // is hidden, so the two states can never disagree.
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
   function handleRegionLoaded(regionNodes) {
     setSnapshotNodes(regionNodes)
@@ -43,17 +47,23 @@ export default function App() {
   return (
     <div className="app">
       <div className="top-stack">
-        <Toolbar nodeCount={nodes.length} />
-        <MapLayersPanel
-          baseLayer={baseLayer}
-          onBaseLayerChange={setBaseLayer}
-          showMeshcore={showMeshcore}
-          showMeshtastic={showMeshtastic}
-          onToggleMeshcore={setShowMeshcore}
-          onToggleMeshtastic={setShowMeshtastic}
+        <Toolbar
+          nodeCount={nodes.length}
+          menuOpen={mobileMenuOpen}
+          onToggleMenu={() => setMobileMenuOpen((open) => !open)}
         />
-        <RegionPicker onNodesLoaded={handleRegionLoaded} />
-        <NodeTypeFilter enabledCategories={enabledRoleCategories} onChange={setEnabledRoleCategories} />
+        <div className={`panels-drawer${mobileMenuOpen ? '' : ' panels-drawer-closed'}`}>
+          <MapLayersPanel
+            baseLayer={baseLayer}
+            onBaseLayerChange={setBaseLayer}
+            showMeshcore={showMeshcore}
+            showMeshtastic={showMeshtastic}
+            onToggleMeshcore={setShowMeshcore}
+            onToggleMeshtastic={setShowMeshtastic}
+          />
+          <RegionPicker onNodesLoaded={handleRegionLoaded} />
+          <NodeTypeFilter enabledCategories={enabledRoleCategories} onChange={setEnabledRoleCategories} />
+        </div>
       </div>
 
       <MapView
