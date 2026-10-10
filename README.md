@@ -2,6 +2,15 @@
 
 A mobile- and desktop-friendly web map for plotting **MeshCore** and **Meshtastic** LoRa mesh network nodes, with switchable base maps and toggleable overlays.
 
+## Site structure
+
+The deployed site has two parts, assembled together by the deploy workflow:
+
+- **`landing/`** — a static, framework-free landing page (`index.html` + `favicon.svg`) served at the site root. No build step: it's plain HTML/CSS with a tiny vanilla-JS progressive enhancement (live node/country counts) and a `FAQPage` JSON-LD block for search/AI answer-engine visibility. Kept deliberately separate from the React app so it's fully crawlable without JS execution.
+- **The React map app** (everything else in `src/`) — served under `/map/`.
+
+Locally, `npm run dev` only serves the React app (at `/`, not `/map/`) — the landing page isn't part of the Vite project and has no dev server of its own; open `landing/index.html` directly, or preview the real assembled layout per [Deployment](#deployment) below.
+
 ## Features
 
 - **Map layers panel**: base map (OpenStreetMap streets, Esri World Imagery satellite, OpenTopoMap terrain) and the MeshCore/Meshtastic overlays, each independently toggleable — styled to match the rest of the panel stack rather than Leaflet's default layers control.
@@ -24,7 +33,9 @@ npm run preview   # preview the production build
 
 ## Deployment
 
-A GitHub Actions workflow (`.github/workflows/deploy.yml`) builds and deploys `dist/` to GitHub Pages on every push to `main`. In the repo settings, set **Pages → Source** to **GitHub Actions**. The site will be served at `/LoRa_mapping/`, matching the `base` path in `vite.config.js`.
+A GitHub Actions workflow (`.github/workflows/deploy.yml`) builds and deploys to GitHub Pages on every push to `main`. In the repo settings, set **Pages → Source** to **GitHub Actions**.
+
+The workflow builds the React app (`npm run build` → `dist/`, with `vite.config.js`'s `base` set to `/LoRa_mapping/map/`) and assembles a combined `site/` directory before uploading it as the Pages artifact: `landing/`'s contents at `site/`'s root, and `dist/`'s contents under `site/map/`. So the deployed layout is `/LoRa_mapping/` → landing page, `/LoRa_mapping/map/` → the map app. To preview that exact layout locally: `npm run build && mkdir -p site/map && cp -r landing/. site/ && cp -r dist/. site/map/`, then serve `site/` with any static file server.
 
 ## Data model
 

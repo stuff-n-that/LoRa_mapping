@@ -1,0 +1,408 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LoRa Mesh Map — Live MeshCore &amp; Meshtastic Node Map</title>
+<meta name="description" content="Live map of MeshCore and Meshtastic LoRa mesh network nodes worldwide, with per-country data and device-role filtering.">
+<meta property="og:type" content="website">
+<meta property="og:title" content="LoRa Mesh Map — Live MeshCore &amp; Meshtastic Node Map">
+<meta property="og:description" content="A live map of the world's LoRa mesh network. Track MeshCore and Meshtastic nodes with switchable street, satellite and terrain layers.">
+<meta name="twitter:card" content="summary">
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0b0b0d;
+    --bg-elevated: #151518;
+    --card: #1b1b1f;
+    --border: rgba(255,255,255,0.1);
+    --text: #f2f2f2;
+    --text-dim: #b8b8bf;
+    --meshcore: #3aa0ff;
+    --meshtastic: #5fd88f;
+    --accent: #3aa0ff;
+    --on-accent: #0b0b0d;
+  }
+  @media (prefers-color-scheme: light) {
+    :root {
+      --bg: #f7f7f8;
+      --bg-elevated: #ffffff;
+      --card: #ffffff;
+      --border: rgba(0,0,0,0.12);
+      --text: #16161a;
+      --text-dim: #55555c;
+      --meshcore: #0b6fcf;
+      --meshtastic: #11834f;
+      --accent: #0b6fcf;
+      --on-accent: #ffffff;
+    }
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body { margin: 0; background: var(--bg); color: var(--text); font-family: system-ui, -apple-system, "Segoe UI", sans-serif; }
+  h1, h2, h3 { font-family: "Space Grotesk", system-ui, sans-serif; margin: 0; }
+  a { color: var(--meshcore); }
+  a:hover { color: #70b8ff; }
+  p { line-height: 1.6; color: var(--text-dim); }
+  .wrap { width: 100%; max-width: 1280px; margin: 0 auto; display: flex; flex-direction: column; }
+  .btn-primary { text-decoration: none; background: var(--accent); color: var(--on-accent); font-weight: 700; padding: 14px 28px; border-radius: 10px; display: inline-block; }
+  .btn-secondary { text-decoration: none; border: 1px solid var(--border); color: var(--text); font-weight: 600; padding: 14px 28px; border-radius: 10px; display: inline-block; }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; }
+  .nav {
+    position: sticky; top: 0; z-index: 20;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 20px 48px; border-bottom: 1px solid var(--border);
+    background: var(--bg); flex-wrap: wrap; gap: 16px;
+  }
+  .nav-links { display: flex; align-items: center; gap: 28px; flex-wrap: wrap; }
+  .nav-links a:not(.btn-primary) { text-decoration: none; font-size: 14px; color: var(--text-dim); }
+  .btn-primary.nav-cta { font-size: 14px; padding: 10px 18px; }
+  section { padding: 0 48px 72px; }
+  .section-narrow { max-width: 760px; }
+  /* Native accordion: content is plain markup, always present for crawlers,
+     no JS required to expand/read — only the open/closed chevron is CSS. */
+  .faq-item { border-bottom: 1px solid var(--border); }
+  .faq-item summary {
+    list-style: none; cursor: pointer; padding: 20px 0; min-height: 44px;
+    display: flex; align-items: center; justify-content: space-between; gap: 16px;
+    font-size: 16px; font-weight: 600; color: var(--text);
+  }
+  .faq-item summary::-webkit-details-marker { display: none; }
+  .faq-item .chev { flex-shrink: 0; color: var(--text-dim); transition: transform 0.15s; }
+  .faq-item[open] .chev { transform: rotate(180deg); }
+  .faq-item p { margin: 0 0 20px; }
+  .grid-2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; }
+  .grid-4 { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 20px; }
+  @media (max-width: 760px) {
+    .nav, section, footer { padding-left: 20px; padding-right: 20px; }
+    .grid-2, .grid-4 { grid-template-columns: 1fr; }
+  }
+  @media (min-width: 761px) and (max-width: 980px) {
+    .grid-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+
+  <!-- Nav -->
+  <nav class="nav">
+    <div style="display: flex; align-items: center; gap: 10px;">
+      <svg width="32" height="32" viewBox="0 0 32 32" role="img" aria-label="LoRa Mesh Map compass rose logo" style="flex-shrink: 0; color: var(--text);">
+        <circle cx="16" cy="16" r="14" fill="none" stroke="currentColor" stroke-width="1" opacity="0.35"></circle>
+        <circle cx="16" cy="16" r="10.5" fill="none" stroke="currentColor" stroke-width="0.75" opacity="0.25"></circle>
+        <polygon points="16,16 14.85,13.23 16,3 17.15,13.23" fill="var(--meshcore)"></polygon>
+        <polygon points="16,16 17.15,13.23 21.66,10.34 18.77,14.85" fill="currentColor" opacity="0.55"></polygon>
+        <polygon points="16,16 18.77,14.85 29,16 18.77,17.15" fill="currentColor" opacity="0.55"></polygon>
+        <polygon points="16,16 18.77,17.15 21.66,21.66 17.15,18.77" fill="currentColor" opacity="0.55"></polygon>
+        <polygon points="16,16 17.15,18.77 16,29 14.85,18.77" fill="currentColor" opacity="0.55"></polygon>
+        <polygon points="16,16 14.85,18.77 10.34,21.66 13.23,17.15" fill="currentColor" opacity="0.55"></polygon>
+        <polygon points="16,16 13.23,17.15 3,16 13.23,14.85" fill="currentColor" opacity="0.55"></polygon>
+        <polygon points="16,16 13.23,14.85 10.34,10.34 14.85,13.23" fill="currentColor" opacity="0.55"></polygon>
+        <circle cx="16" cy="16" r="2" fill="var(--bg)" stroke="currentColor" stroke-width="1"></circle>
+      </svg>
+      <span style="font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 18px;">LoRa Mesh Map</span>
+    </div>
+    <div class="nav-links">
+      <a href="#features">Features</a>
+      <a href="#compare">MeshCore vs Meshtastic</a>
+      <a href="#hardware">Get started</a>
+      <a href="#faq">FAQ</a>
+      <a href="map/" class="btn-primary nav-cta">Open the map</a>
+    </div>
+  </nav>
+
+  <!-- Hero -->
+  <header style="padding: 88px 48px 64px; display: flex; flex-direction: column; align-items: center; text-align: center; gap: 24px;">
+    <div class="card" style="display: inline-flex; align-items: center; gap: 8px; border-radius: 999px; padding: 6px 14px; font-size: 13px; color: var(--text-dim);">
+      <span style="width: 8px; height: 8px; border-radius: 50%; background: var(--meshtastic);"></span>
+      Live community node data, refreshed every 30 minutes
+    </div>
+    <h1 style="font-size: clamp(32px, 7vw, 56px); line-height: 1.1; max-width: 820px;">A live map of the world's LoRa mesh network</h1>
+    <p style="font-size: 19px; max-width: 680px; margin: 0;">
+      Track <strong style="color: var(--text);">MeshCore</strong> and <strong style="color: var(--text);">Meshtastic</strong> nodes worldwide on one map —
+      switchable street, satellite and terrain layers, per-country data, and filtering by device role.
+      No account, no app install, just open it in a browser.
+    </p>
+    <div style="display: flex; gap: 14px; margin-top: 8px; flex-wrap: wrap; justify-content: center;">
+      <a href="map/" class="btn-primary" style="font-size: 16px;">Open the live map →</a>
+      <a href="#faq" class="btn-secondary" style="font-size: 16px;">How it works</a>
+    </div>
+
+    <div style="display: flex; gap: 48px; margin-top: 40px; flex-wrap: wrap; justify-content: center;">
+      <div style="text-align: center;">
+        <div style="font-family: 'Space Grotesk', sans-serif; font-size: 32px; font-weight: 700;"><span id="stat-countries">90+</span></div>
+        <div style="font-size: 13px; color: var(--text-dim);">countries with node data</div>
+      </div>
+      <div style="text-align: center;">
+        <div style="font-family: 'Space Grotesk', sans-serif; font-size: 32px; font-weight: 700;"><span id="stat-nodes">70,000+</span></div>
+        <div style="font-size: 13px; color: var(--text-dim);">nodes tracked</div>
+      </div>
+      <div style="text-align: center;">
+        <div style="font-family: 'Space Grotesk', sans-serif; font-size: 32px; font-weight: 700;">2</div>
+        <div style="font-size: 13px; color: var(--text-dim);">mesh networks, one map</div>
+      </div>
+    </div>
+  </header>
+
+  <!-- TODO: real ad unit (e.g. Google AdSense) once an ad program is set up. -->
+  <div style="margin: 0 48px 64px; border: 1px dashed var(--border); border-radius: 12px; padding: 20px; text-align: center; color: var(--text-dim); font-size: 13px;">
+    [ Ad unit placeholder ]
+  </div>
+
+  <!-- What is LoRa mesh -->
+  <section class="section-narrow" style="display: flex; flex-direction: column; gap: 16px;">
+    <h2 style="font-size: 32px;">What is LoRa mesh networking?</h2>
+    <p>
+      LoRa (Long Range) is a low-power radio modulation technique that trades bandwidth for range, letting small battery-powered
+      devices communicate over several kilometres without cellular towers or Wi-Fi. A LoRa <em>mesh</em> network takes that further:
+      instead of every device needing to reach a central base station directly, each node can relay messages for its neighbours,
+      hop by hop, extending coverage far past any single radio's range.
+    </p>
+    <p>
+      That makes LoRa mesh popular for off-grid messaging on hikes and at events, emergency and disaster-response communication
+      when cellular infrastructure is down, and hobbyist community networks that want resilient, infrastructure-free coverage
+      across a town or region. <strong style="color: var(--text);">MeshCore</strong> and <strong style="color: var(--text);">Meshtastic</strong>
+      are the two leading open projects building this on affordable hardware — this map plots nodes from both.
+    </p>
+  </section>
+
+  <!-- MeshCore vs Meshtastic -->
+  <section id="compare" style="display: flex; flex-direction: column; gap: 28px;">
+    <h2 style="font-size: 32px;">MeshCore vs Meshtastic</h2>
+    <div class="grid-2">
+      <div class="card" style="border-left: 3px solid var(--meshcore); padding: 28px; display: flex; flex-direction: column; gap: 12px;">
+        <h3 style="font-size: 20px; color: var(--meshcore);">MeshCore</h3>
+        <p style="margin: 0;">
+          A newer, community-driven mesh project built around a simple contact/advert model. Devices identify as one of four
+          roles — <strong style="color: var(--text);">Client</strong>, <strong style="color: var(--text);">Repeater</strong>,
+          <strong style="color: var(--text);">Room Server</strong> (a shared chat hub), or <strong style="color: var(--text);">Sensor</strong> —
+          and are managed from a companion phone app over Bluetooth.
+        </p>
+      </div>
+      <div class="card" style="border-left: 3px solid var(--meshtastic); padding: 28px; display: flex; flex-direction: column; gap: 12px;">
+        <h3 style="font-size: 20px; color: var(--meshtastic);">Meshtastic</h3>
+        <p style="margin: 0;">
+          The longer-established, widely adopted open-source firmware, running on inexpensive ESP32/nRF52 boards. Devices take
+          on a device role such as <strong style="color: var(--text);">Client</strong>, <strong style="color: var(--text);">Router</strong>,
+          <strong style="color: var(--text);">Repeater</strong>, <strong style="color: var(--text);">Tracker</strong> or
+          <strong style="color: var(--text);">Sensor</strong>, and a large ecosystem of apps and public community map instances
+          has grown up around it.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Features -->
+  <section id="features" style="display: flex; flex-direction: column; gap: 28px;">
+    <h2 style="font-size: 32px;">What the map does</h2>
+    <div style="display: flex; flex-direction: column; gap: 16px;">
+      <div class="card" style="padding: 28px; display: flex; align-items: flex-start; gap: 24px;">
+        <span style="flex-shrink: 0; width: 44px; height: 44px; border-radius: 10px; background: var(--bg-elevated); display: flex; align-items: center; justify-content: center; font-family: 'Space Grotesk', sans-serif; font-weight: 700; color: var(--meshcore);">01</span>
+        <div style="display: flex; flex-direction: column; gap: 6px;">
+          <h3 style="font-size: 18px;">Country-by-country data</h3>
+          <p style="font-size: 15px; margin: 0; max-width: 640px;">Pick one or more countries to load real node data — cross-border coverage without downloading the whole world.</p>
+        </div>
+      </div>
+      <div class="card" style="padding: 28px; display: flex; align-items: flex-start; gap: 24px;">
+        <span style="flex-shrink: 0; width: 44px; height: 44px; border-radius: 10px; background: var(--bg-elevated); display: flex; align-items: center; justify-content: center; font-family: 'Space Grotesk', sans-serif; font-weight: 700; color: var(--meshtastic);">02</span>
+        <div style="display: flex; flex-direction: column; gap: 6px;">
+          <h3 style="font-size: 18px;">Filter by device role</h3>
+          <p style="font-size: 15px; margin: 0; max-width: 640px;">Show just Repeaters, just Sensors, or any mix — one filter that works across both networks.</p>
+        </div>
+      </div>
+      <div class="card" style="padding: 28px; display: flex; align-items: flex-start; gap: 24px;">
+        <span style="flex-shrink: 0; width: 44px; height: 44px; border-radius: 10px; background: var(--bg-elevated); display: flex; align-items: center; justify-content: center; font-family: 'Space Grotesk', sans-serif; font-weight: 700; color: var(--meshcore);">03</span>
+        <div style="display: flex; flex-direction: column; gap: 6px;">
+          <h3 style="font-size: 18px;">Street, satellite &amp; terrain</h3>
+          <p style="font-size: 15px; margin: 0; max-width: 640px;">Switch base layers to judge line-of-sight and placement, not just position.</p>
+        </div>
+      </div>
+      <div class="card" style="padding: 28px; display: flex; align-items: flex-start; gap: 24px;">
+        <span style="flex-shrink: 0; width: 44px; height: 44px; border-radius: 10px; background: var(--bg-elevated); display: flex; align-items: center; justify-content: center; font-family: 'Space Grotesk', sans-serif; font-weight: 700; color: var(--meshtastic);">04</span>
+        <div style="display: flex; flex-direction: column; gap: 6px;">
+          <h3 style="font-size: 18px;">Built for tens of thousands of nodes</h3>
+          <p style="font-size: 15px; margin: 0; max-width: 640px;">Clustering keeps the map fast on a phone even with both networks' full global data loaded.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Getting started / hardware -->
+  <section id="hardware" style="display: flex; flex-direction: column; gap: 24px;">
+    <h2 style="font-size: 32px;">Get on the map: popular starter hardware</h2>
+    <p style="max-width: 680px;">
+      To show up on the map yourself, you need a LoRa node running MeshCore or Meshtastic firmware, configured to report to
+      the public community network. These are commonly recommended starting devices:
+    </p>
+    <div class="grid-4">
+      <!-- TODO: replace href="#" with real affiliate links once a program is set up. -->
+      <div class="card" style="padding: 20px; display: flex; flex-direction: column; gap: 10px;">
+        <div style="width: 100%; height: 100px; background: var(--bg-elevated); border-radius: 8px; display: flex; align-items: center; justify-content: center; color: var(--text-dim); font-size: 12px;">[Product photo]</div>
+        <h3 style="font-size: 15px;">Heltec V3</h3>
+        <p style="font-size: 13px; margin: 0;">Budget-friendly ESP32 LoRa board with a built-in OLED screen.</p>
+        <a href="#" style="text-decoration: none; text-align: center; border: 1px solid var(--border); border-radius: 8px; padding: 8px; font-size: 13px; font-weight: 600;">[Affiliate link]</a>
+      </div>
+      <div class="card" style="padding: 20px; display: flex; flex-direction: column; gap: 10px;">
+        <div style="width: 100%; height: 100px; background: var(--bg-elevated); border-radius: 8px; display: flex; align-items: center; justify-content: center; color: var(--text-dim); font-size: 12px;">[Product photo]</div>
+        <h3 style="font-size: 15px;">RAK4631</h3>
+        <p style="font-size: 13px; margin: 0;">Low-power nRF52 module, popular for solar-powered repeaters.</p>
+        <a href="#" style="text-decoration: none; text-align: center; border: 1px solid var(--border); border-radius: 8px; padding: 8px; font-size: 13px; font-weight: 600;">[Affiliate link]</a>
+      </div>
+      <div class="card" style="padding: 20px; display: flex; flex-direction: column; gap: 10px;">
+        <div style="width: 100%; height: 100px; background: var(--bg-elevated); border-radius: 8px; display: flex; align-items: center; justify-content: center; color: var(--text-dim); font-size: 12px;">[Product photo]</div>
+        <h3 style="font-size: 15px;">T-Beam</h3>
+        <p style="font-size: 13px; margin: 0;">Built-in GPS, good for a mobile or tracker node.</p>
+        <a href="#" style="text-decoration: none; text-align: center; border: 1px solid var(--border); border-radius: 8px; padding: 8px; font-size: 13px; font-weight: 600;">[Affiliate link]</a>
+      </div>
+      <div class="card" style="padding: 20px; display: flex; flex-direction: column; gap: 10px;">
+        <div style="width: 100%; height: 100px; background: var(--bg-elevated); border-radius: 8px; display: flex; align-items: center; justify-content: center; color: var(--text-dim); font-size: 12px;">[Product photo]</div>
+        <h3 style="font-size: 15px;">T-Deck</h3>
+        <p style="font-size: 13px; margin: 0;">Keyboard + screen, built for chat-style use on the trail.</p>
+        <a href="#" style="text-decoration: none; text-align: center; border: 1px solid var(--border); border-radius: 8px; padding: 8px; font-size: 13px; font-weight: 600;">[Affiliate link]</a>
+      </div>
+    </div>
+    <!-- TODO: replace with the exact disclosure wording your affiliate program requires. -->
+    <p style="font-size: 12px; max-width: 680px;">
+      [Disclosure placeholder] Some links on this page are affiliate links — if you buy through them we may earn a small
+      commission at no extra cost to you.
+    </p>
+  </section>
+
+  <!-- FAQ -->
+  <section id="faq" class="section-narrow" style="display: flex; flex-direction: column; gap: 24px;">
+    <h2 style="font-size: 32px;">Frequently asked questions</h2>
+    <div style="display: flex; flex-direction: column; border-top: 1px solid var(--border);">
+      <details class="faq-item" open>
+        <summary>What is the difference between MeshCore and Meshtastic?<span class="chev">▾</span></summary>
+        <p>They're two separate open-source LoRa mesh projects, not versions of the same thing. MeshCore uses a simpler contact/advert model with four device types (Client, Repeater, Room Server, Sensor) and a Bluetooth companion app. Meshtastic is the older, more widely adopted firmware with a broader device-role system and ecosystem. This map shows live node data from both, side by side.</p>
+      </details>
+      <details class="faq-item">
+        <summary>Which is better, MeshCore or Meshtastic?<span class="chev">▾</span></summary>
+        <p>Neither is strictly "better" — they suit different priorities. Meshtastic has the larger ecosystem, more apps, and more hardware support, which usually means an easier start and a bigger local community to join. MeshCore's simpler role model and Room Server (shared chat hub) concept appeal to people who want something more minimal. Many hobbyists end up running both. See the comparison above for the concrete feature differences.</p>
+      </details>
+      <details class="faq-item">
+        <summary>Do I need internet or cellular service to use a LoRa mesh network?<span class="chev">▾</span></summary>
+        <p>No — that is the point. Nodes talk directly to each other over LoRa radio, hop by hop, with no cellular towers, Wi-Fi or internet connection required between devices. Internet is only involved if a node (or this map) chooses to publish its data to a public community server.</p>
+      </details>
+      <details class="faq-item">
+        <summary>How far can a LoRa mesh network actually reach?<span class="chev">▾</span></summary>
+        <p>It varies enormously with terrain, antenna height and local radio interference — anywhere from a few hundred metres in a dense city to 50km+ line-of-sight between hilltops. Because it's a mesh, range isn't capped at one hop: each additional repeater in the chain extends coverage further, at the cost of a little latency per hop.</p>
+      </details>
+      <details class="faq-item">
+        <summary>Where does the node data on this map come from?<span class="chev">▾</span></summary>
+        <p>From the public MeshCore and Meshtastic community map APIs. A scheduled job fetches both networks' data server-side, sorts it into per-country files, and the map loads only the countries you select — refreshed roughly every 30 minutes.</p>
+      </details>
+      <details class="faq-item">
+        <summary>Why does a node sometimes show up in the wrong place?<span class="chev">▾</span></summary>
+        <p>The map can only be as accurate as what a node itself reports — a self-set or GPS-derived position, sent along with everything else it broadcasts. A node with no GPS fix, a manually mis-entered location, or stale cached data can show up offset or in the wrong country. If you spot something that looks clearly wrong (not just imprecise), it's worth reporting.</p>
+      </details>
+      <details class="faq-item">
+        <summary>Will my node show up here automatically?<span class="chev">▾</span></summary>
+        <p>Only if it is configured to report to the same public community network this map reads from. A node run entirely offline, or pointed at a private server, will not appear.</p>
+      </details>
+      <details class="faq-item">
+        <summary>What hardware do I need to get started?<span class="chev">▾</span></summary>
+        <p>Any LoRa board supported by MeshCore or Meshtastic firmware — see the starter hardware section above for commonly recommended options.</p>
+      </details>
+      <details class="faq-item">
+        <summary>Is this map affiliated with the official MeshCore or Meshtastic projects?<span class="chev">▾</span></summary>
+        <p>No. This is an independent, community-built map — not operated by, or officially affiliated with, either the MeshCore or Meshtastic project teams. It reads from the same public community map APIs their own official map frontends use.</p>
+      </details>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer style="border-top: 1px solid var(--border); padding: 32px 48px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 16px;">
+    <span style="font-size: 13px; color: var(--text-dim);">LoRa Mesh Map — community data from the public MeshCore and Meshtastic networks.</span>
+    <div style="display: flex; gap: 20px;">
+      <a href="map/" style="text-decoration: none; font-size: 13px; color: var(--text-dim);">Open the map</a>
+      <a href="#faq" style="text-decoration: none; font-size: 13px; color: var(--text-dim);">FAQ</a>
+    </div>
+  </footer>
+
+</div>
+
+<!-- FAQPage structured data — lets search/answer engines quote these answers
+     directly rather than only ranking the page as a whole. Keep in sync with
+     the <details> content above by hand; there are few enough questions that
+     generating this from the markup isn't worth the added build complexity. -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "What is the difference between MeshCore and Meshtastic?",
+      "acceptedAnswer": { "@type": "Answer", "text": "They're two separate open-source LoRa mesh projects, not versions of the same thing. MeshCore uses a simpler contact/advert model with four device types (Client, Repeater, Room Server, Sensor) and a Bluetooth companion app. Meshtastic is the older, more widely adopted firmware with a broader device-role system and ecosystem. This map shows live node data from both, side by side." }
+    },
+    {
+      "@type": "Question",
+      "name": "Which is better, MeshCore or Meshtastic?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Neither is strictly better — they suit different priorities. Meshtastic has the larger ecosystem, more apps, and more hardware support, which usually means an easier start and a bigger local community to join. MeshCore's simpler role model and Room Server (shared chat hub) concept appeal to people who want something more minimal. Many hobbyists end up running both." }
+    },
+    {
+      "@type": "Question",
+      "name": "Do I need internet or cellular service to use a LoRa mesh network?",
+      "acceptedAnswer": { "@type": "Answer", "text": "No. Nodes talk directly to each other over LoRa radio, hop by hop, with no cellular towers, Wi-Fi or internet connection required between devices. Internet is only involved if a node, or this map, chooses to publish its data to a public community server." }
+    },
+    {
+      "@type": "Question",
+      "name": "How far can a LoRa mesh network actually reach?",
+      "acceptedAnswer": { "@type": "Answer", "text": "It varies enormously with terrain, antenna height and local radio interference — anywhere from a few hundred metres in a dense city to 50km+ line-of-sight between hilltops. Because it's a mesh, range isn't capped at one hop: each additional repeater in the chain extends coverage further, at the cost of a little latency per hop." }
+    },
+    {
+      "@type": "Question",
+      "name": "Where does the node data on this map come from?",
+      "acceptedAnswer": { "@type": "Answer", "text": "From the public MeshCore and Meshtastic community map APIs. A scheduled job fetches both networks' data server-side, sorts it into per-country files, and the map loads only the countries you select, refreshed roughly every 30 minutes." }
+    },
+    {
+      "@type": "Question",
+      "name": "Why does a node sometimes show up in the wrong place?",
+      "acceptedAnswer": { "@type": "Answer", "text": "The map can only be as accurate as what a node itself reports — a self-set or GPS-derived position. A node with no GPS fix, a manually mis-entered location, or stale cached data can show up offset or in the wrong country." }
+    },
+    {
+      "@type": "Question",
+      "name": "Will my node show up here automatically?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Only if it is configured to report to the same public community network this map reads from. A node run entirely offline, or pointed at a private server, will not appear." }
+    },
+    {
+      "@type": "Question",
+      "name": "What hardware do I need to get started?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Any LoRa board supported by MeshCore or Meshtastic firmware, such as a Heltec V3, RAK4631, T-Beam or T-Deck." }
+    },
+    {
+      "@type": "Question",
+      "name": "Is this map affiliated with the official MeshCore or Meshtastic projects?",
+      "acceptedAnswer": { "@type": "Answer", "text": "No. This is an independent, community-built map, not operated by or officially affiliated with either the MeshCore or Meshtastic project teams. It reads from the same public community map APIs their own official map frontends use." }
+    }
+  ]
+}
+</script>
+
+<!-- Progressive enhancement only: the static numbers above are a reasonable
+     fallback if this fails or JS is disabled, so nothing meaningful is
+     lost without it. -->
+<script>
+  (function () {
+    fetch('map/regions/index.json')
+      .then(function (res) { return res.ok ? res.json() : null; })
+      .then(function (data) {
+        if (!data || !Array.isArray(data.regions)) return;
+        var countries = data.regions.length;
+        var nodes = data.regions.reduce(function (sum, r) { return sum + (r.count || 0); }, 0);
+        var countryEl = document.getElementById('stat-countries');
+        var nodeEl = document.getElementById('stat-nodes');
+        if (countryEl) countryEl.textContent = countries + '+';
+        if (nodeEl) nodeEl.textContent = nodes.toLocaleString() + '+';
+      })
+      .catch(function () {});
+  })();
+</script>
+</body>
+</html>
