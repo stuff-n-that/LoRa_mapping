@@ -6,8 +6,9 @@ A mobile- and desktop-friendly web map for plotting **MeshCore** and **Meshtasti
 
 The deployed site has two parts, assembled together by the deploy workflow:
 
-- **`landing/`** — a static, framework-free landing page (`index.html` + `favicon.svg`) served at the site root. No build step: it's plain HTML/CSS with a tiny vanilla-JS progressive enhancement (live node/country counts) and a `FAQPage` JSON-LD block for search/AI answer-engine visibility. Kept deliberately separate from the React app so it's fully crawlable without JS execution.
+- **`landing/`** — a static, framework-free landing page (`index.html` + `favicon.svg`) served at the site root. No build step: it's plain HTML/CSS with a tiny vanilla-JS progressive enhancement (live node/country counts) and `WebSite`/`WebApplication`/`FAQPage` JSON-LD for search/AI answer-engine visibility. Kept deliberately separate from the React app so it's fully crawlable without JS execution.
 - **The React map app** (everything else in `src/`) — served under `/map/`.
+- **Crawler/discovery files**, also in `landing/` so they land at the site root: `robots.txt` (allows all crawlers, including AI ones — no reason to block any given the SEO/AEO goal), `sitemap.xml` (the two real URLs: the landing page and `/map/`), and `llms.txt` (the [llmstxt.org](https://llmstxt.org) convention — a concise plain-markdown summary of the site for AI crawlers that don't want to parse full HTML/JS). All three use hardcoded absolute URLs (`https://stuff-n-that.github.io/LoRa_mapping/...`); update them if the site ever moves domains.
 
 Locally, `npm run dev` only serves the React app (at `/`, not `/map/`) — the landing page isn't part of the Vite project and has no dev server of its own; open `landing/index.html` directly, or preview the real assembled layout per [Deployment](#deployment) below.
 
