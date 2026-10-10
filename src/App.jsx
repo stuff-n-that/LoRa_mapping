@@ -48,7 +48,7 @@ export default function App() {
     <div className="app">
       <div className="top-stack">
         <Toolbar
-          nodeCount={nodes.length}
+          nodeCount={visibleNodes.length}
           menuOpen={mobileMenuOpen}
           onToggleMenu={() => setMobileMenuOpen((open) => !open)}
         />
