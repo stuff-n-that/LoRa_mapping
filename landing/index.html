@@ -304,39 +304,39 @@
   <section id="faq" class="section-narrow" style="display: flex; flex-direction: column; gap: 24px;">
     <h2 style="font-size: 32px;">Frequently asked questions</h2>
     <div style="display: flex; flex-direction: column; border-top: 1px solid var(--border);">
-      <details class="faq-item" open>
+      <details class="faq-item" name="faq" open>
         <summary>What is the difference between MeshCore and Meshtastic?<span class="chev">▾</span></summary>
         <p>They're two separate open-source LoRa mesh projects, not versions of the same thing. MeshCore uses a simpler contact/advert model with four device types (Client, Repeater, Room Server, Sensor) and a Bluetooth companion app. Meshtastic is the older, more widely adopted firmware with a broader device-role system and ecosystem. This map shows live node data from both, side by side.</p>
       </details>
-      <details class="faq-item">
+      <details class="faq-item" name="faq">
         <summary>Which is better, MeshCore or Meshtastic?<span class="chev">▾</span></summary>
         <p>Neither is strictly "better" — they suit different priorities. Meshtastic has the larger ecosystem, more apps, and more hardware support, which usually means an easier start and a bigger local community to join. MeshCore's simpler role model and Room Server (shared chat hub) concept appeal to people who want something more minimal. Many hobbyists end up running both. See the comparison above for the concrete feature differences.</p>
       </details>
-      <details class="faq-item">
+      <details class="faq-item" name="faq">
         <summary>Do I need internet or cellular service to use a LoRa mesh network?<span class="chev">▾</span></summary>
         <p>No — that is the point. Nodes talk directly to each other over LoRa radio, hop by hop, with no cellular towers, Wi-Fi or internet connection required between devices. Internet is only involved if a node (or this map) chooses to publish its data to a public community server.</p>
       </details>
-      <details class="faq-item">
+      <details class="faq-item" name="faq">
         <summary>How far can a LoRa mesh network actually reach?<span class="chev">▾</span></summary>
         <p>It varies enormously with terrain, antenna height and local radio interference — anywhere from a few hundred metres in a dense city to 50km+ line-of-sight between hilltops. Because it's a mesh, range isn't capped at one hop: each additional repeater in the chain extends coverage further, at the cost of a little latency per hop.</p>
       </details>
-      <details class="faq-item">
+      <details class="faq-item" name="faq">
         <summary>Where does the node data on this map come from?<span class="chev">▾</span></summary>
         <p>From the public MeshCore and Meshtastic community map APIs. A scheduled job fetches both networks' data server-side, sorts it into per-country files, and the map loads only the countries you select — refreshed roughly every 30 minutes.</p>
       </details>
-      <details class="faq-item">
+      <details class="faq-item" name="faq">
         <summary>Why does a node sometimes show up in the wrong place?<span class="chev">▾</span></summary>
         <p>The map can only be as accurate as what a node itself reports — a self-set or GPS-derived position, sent along with everything else it broadcasts. A node with no GPS fix, a manually mis-entered location, or stale cached data can show up offset or in the wrong country. If you spot something that looks clearly wrong (not just imprecise), it's worth reporting.</p>
       </details>
-      <details class="faq-item">
+      <details class="faq-item" name="faq">
         <summary>Will my node show up here automatically?<span class="chev">▾</span></summary>
         <p>Only if it is configured to report to the same public community network this map reads from. A node run entirely offline, or pointed at a private server, will not appear.</p>
       </details>
-      <details class="faq-item">
+      <details class="faq-item" name="faq">
         <summary>What hardware do I need to get started?<span class="chev">▾</span></summary>
         <p>Any LoRa board supported by MeshCore or Meshtastic firmware — see the starter hardware section above for commonly recommended options.</p>
       </details>
-      <details class="faq-item">
+      <details class="faq-item" name="faq">
         <summary>Is this map affiliated with the official MeshCore or Meshtastic projects?<span class="chev">▾</span></summary>
         <p>No. This is an independent, community-built map — not operated by, or officially affiliated with, either the MeshCore or Meshtastic project teams. It reads from the same public community map APIs their own official map frontends use.</p>
       </details>
