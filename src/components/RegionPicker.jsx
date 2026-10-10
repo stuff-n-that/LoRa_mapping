@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import CollapsibleSection from './CollapsibleSection'
 
-export default function RegionPicker({ onNodesLoaded }) {
+export default function RegionPicker({ onNodesLoaded, onSelectionCountChange }) {
   const [regions, setRegions] = useState([])
   const [indexStatus, setIndexStatus] = useState('loading') // loading | ready | missing
   const [search, setSearch] = useState('')
@@ -30,6 +30,13 @@ export default function RegionPicker({ onNodesLoaded }) {
     onNodesLoaded(merged)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedCodes, regionData])
+
+  // Separate from the node merge above so the title bar can show "N
+  // regions selected" without needing to recount a nodes array itself.
+  useEffect(() => {
+    onSelectionCountChange?.(selectedCodes.length)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedCodes])
 
   function loadRegion(code) {
     setRegionData((prev) => ({ ...prev, [code]: { status: 'loading', nodes: [] } }))

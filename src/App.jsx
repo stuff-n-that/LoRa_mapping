@@ -11,6 +11,7 @@ import './App.css'
 export default function App() {
   const [nodes, setNodes] = useState(() => loadNodes())
   const [snapshotNodes, setSnapshotNodes] = useState([])
+  const [selectedRegionCount, setSelectedRegionCount] = useState(0)
   const [enabledRoleCategories, setEnabledRoleCategories] = useState(
     () => new Set(ROLE_CATEGORIES.map((c) => c.key)),
   )
@@ -49,6 +50,7 @@ export default function App() {
       <div className="top-stack">
         <Toolbar
           nodeCount={visibleNodes.length}
+          selectedRegionCount={selectedRegionCount}
           menuOpen={mobileMenuOpen}
           onToggleMenu={() => setMobileMenuOpen((open) => !open)}
         />
@@ -61,7 +63,7 @@ export default function App() {
             onToggleMeshcore={setShowMeshcore}
             onToggleMeshtastic={setShowMeshtastic}
           />
-          <RegionPicker onNodesLoaded={handleRegionLoaded} />
+          <RegionPicker onNodesLoaded={handleRegionLoaded} onSelectionCountChange={setSelectedRegionCount} />
           <NodeTypeFilter enabledCategories={enabledRoleCategories} onChange={setEnabledRoleCategories} />
         </div>
       </div>
