@@ -1,0 +1,17 @@
+# LoRa Mesh Map
+
+> A live, independent map of MeshCore and Meshtastic LoRa mesh network nodes worldwide, with switchable street/satellite/terrain layers, per-country data loading, and filtering by device role (Repeater, Client, Sensor, Room Server).
+
+LoRa Mesh Map reads from the public MeshCore and Meshtastic community map APIs (refreshed roughly every 30 minutes), sorts the data by country, and plots nodes from both networks on one map. It is not operated by or officially affiliated with either the MeshCore or Meshtastic project teams.
+
+## Pages
+
+- [Open the live map](https://stuff-n-that.github.io/LoRa_mapping/map/): the interactive map — region picker (load one or more countries' real node data), node-type filter, switchable base map layers (streets/satellite/terrain), marker clustering.
+- [Landing page](https://stuff-n-that.github.io/LoRa_mapping/): background on LoRa mesh networking, a MeshCore vs Meshtastic comparison, starter hardware suggestions, and a frequently-asked-questions section.
+
+## Key facts
+
+- MeshCore and Meshtastic are two separate open-source LoRa mesh projects, not versions of the same thing. MeshCore devices identify as one of four roles: Client, Repeater, Room Server (a shared chat hub), or Sensor. Meshtastic devices use a broader device-role system (Client, Router, Repeater, Tracker, Sensor, among others).
+- A LoRa mesh network requires no cellular or internet connection between devices — nodes relay messages for each other over LoRa radio, hop by hop. Internet is only involved if a node, or this map, chooses to publish data to a public community server.
+- Node positions are self-reported by each device's own owner; this map does not independently verify them, so an individual node's listed location can be stale or imprecise.
+- This map's own node data is fetched server-side (not from the visitor's browser) and sharded into one file per country, so the site only ever downloads the countries a visitor actually selects rather than a global dataset.

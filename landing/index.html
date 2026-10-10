@@ -9,6 +9,7 @@
 <meta property="og:title" content="LoRa Mesh Map — Live MeshCore &amp; Meshtastic Node Map">
 <meta property="og:description" content="A live map of the world's LoRa mesh network. Track MeshCore and Meshtastic nodes with switchable street, satellite and terrain layers.">
 <meta name="twitter:card" content="summary">
+<link rel="canonical" href="https://stuff-n-that.github.io/LoRa_mapping/">
 <link rel="icon" type="image/svg+xml" href="favicon.svg">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -338,15 +339,35 @@
 
 </div>
 
-<!-- FAQPage structured data — lets search/answer engines quote these answers
-     directly rather than only ranking the page as a whole. Keep in sync with
-     the <details> content above by hand; there are few enough questions that
-     generating this from the markup isn't worth the added build complexity. -->
+<!-- Structured data: WebSite + WebApplication identify the site and the
+     actual tool; FAQPage lets search/answer engines quote these answers
+     directly rather than only ranking the page as a whole. Keep the FAQ
+     entries in sync with the <details> content above by hand; there are
+     few enough questions that generating this from the markup isn't worth
+     the added build complexity. -->
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
-  "@type": "FAQPage",
-  "mainEntity": [
+  "@graph": [
+    {
+      "@type": "WebSite",
+      "name": "LoRa Mesh Map",
+      "url": "https://stuff-n-that.github.io/LoRa_mapping/",
+      "description": "Live map of MeshCore and Meshtastic LoRa mesh network nodes worldwide, with per-country data and device-role filtering."
+    },
+    {
+      "@type": "WebApplication",
+      "name": "LoRa Mesh Map",
+      "url": "https://stuff-n-that.github.io/LoRa_mapping/map/",
+      "description": "Interactive map of live MeshCore and Meshtastic LoRa mesh network nodes — switchable street, satellite and terrain layers, per-country data loading, and filtering by device role.",
+      "applicationCategory": "UtilitiesApplication",
+      "operatingSystem": "Any (web browser)",
+      "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+      "isAccessibleForFree": true
+    },
+    {
+      "@type": "FAQPage",
+      "mainEntity": [
     {
       "@type": "Question",
       "name": "What is the difference between MeshCore and Meshtastic?",
@@ -391,6 +412,8 @@
       "@type": "Question",
       "name": "Is this map affiliated with the official MeshCore or Meshtastic projects?",
       "acceptedAnswer": { "@type": "Answer", "text": "No. This is an independent, community-built map, not operated by or officially affiliated with either the MeshCore or Meshtastic project teams. It reads from the same public community map APIs their own official map frontends use." }
+        }
+      ]
     }
   ]
 }

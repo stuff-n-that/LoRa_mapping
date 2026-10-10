@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://stuff-n-that.github.io/LoRa_mapping/sitemap.xml
