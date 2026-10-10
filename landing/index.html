@@ -43,32 +43,6 @@
   * { box-sizing: border-box; }
   html { scroll-behavior: smooth; }
   body { margin: 0; background: var(--bg); color: var(--text); font-family: system-ui, -apple-system, "Segoe UI", sans-serif; }
-  /* Decorative only, dark theme only: the source image has a flat black
-     background baked in with no transparency, so mix-blend-mode: screen
-     makes the black vanish into the page's own background and only the
-     gold linework shows through — no image editing needed, and the base
-     --bg color itself is untouched. On light mode there's no sensible
-     equivalent (a black-background graphic can't blend into a white
-     page), so it's hidden there entirely rather than shown badly.
-     background-size: contain (not cover) guarantees all four corners
-     stay visible regardless of viewport aspect ratio, rather than being
-     cropped off on a narrow/tall screen. position: fixed covers the
-     viewport, not the scrollable document, so it stays framed correctly
-     at any scroll depth without needing document-height math. */
-  .cobweb-decor {
-    display: none;
-    position: fixed; inset: 0; z-index: 0; pointer-events: none;
-    background-image: url('cobweb-corners.webp');
-    background-repeat: no-repeat;
-    background-position: center;
-    background-size: contain;
-    mix-blend-mode: screen;
-    opacity: 0.6;
-  }
-  @media (prefers-color-scheme: dark) {
-    .cobweb-decor { display: block; }
-  }
-  .wrap { position: relative; z-index: 1; }
   h1, h2, h3 { font-family: "Space Grotesk", system-ui, sans-serif; margin: 0; }
   a { color: var(--meshcore); }
   a:hover { color: #70b8ff; }
@@ -123,8 +97,6 @@
 </style>
 </head>
 <body>
-
-<div class="cobweb-decor" aria-hidden="true"></div>
 
 <div class="wrap">
 
