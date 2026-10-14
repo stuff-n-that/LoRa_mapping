@@ -68,8 +68,12 @@ export default function App() {
           />
           <RegionPicker onNodesLoaded={handleRegionLoaded} onSelectionCountChange={setSelectedRegionCount} />
           <NodeTypeFilter enabledCategories={enabledRoleCategories} onChange={setEnabledRoleCategories} />
-          <MeasurePanel mode={measureMode} onModeChange={setMeasureMode} stage={measureInfo.stage} resultText={measureInfo.text} />
         </div>
+        {/* Outside .panels-drawer on purpose: the drawer is hidden behind
+            the ☰ button below the mobile breakpoint, but Measure needs to
+            stay visible while you're dragging a point on the map, so it
+            can't be behind that same toggle. */}
+        <MeasurePanel mode={measureMode} onModeChange={setMeasureMode} stage={measureInfo.stage} resultText={measureInfo.text} />
       </div>
 
       <MapView
