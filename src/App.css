@@ -260,14 +260,6 @@
   flex-shrink: 0;
 }
 
-/* Fixed width so the panel never resizes as the hint/result text changes
-   while actively measuring — it would otherwise grow to fit whichever line
-   (button row vs. hint) is currently widest, shifting under your cursor. */
-.measure-panel {
-  width: 230px;
-  flex-shrink: 0;
-}
-
 .measure-tools {
   display: flex;
   gap: 8px;
@@ -304,6 +296,14 @@
   margin-top: 2px;
   font-size: 11px;
   opacity: 0.6;
+  /* Capped well below what the other panels' own content already
+     establishes as the shared stack width (headers, region list rows,
+     etc.), so this is the one line that always wraps instead of ever
+     becoming the widest line and growing the whole shared-width stack
+     while you're mid-measurement. Not a fixed panel width — Measure sizes
+     itself the exact same shrink-to-stack-width way every other panel
+     does, so it's never a different width from them. */
+  max-width: 190px;
 }
 
 @media (max-width: 520px) {
@@ -315,15 +315,9 @@
   }
 
   .region-panel-note,
-  .node-type-note {
+  .node-type-note,
+  .measure-hint {
     max-width: none;
-  }
-
-  /* The desktop fixed width exists only to stop the panel resizing while
-     measuring (see .measure-panel above); on mobile it should fill the
-     drawer like every other panel instead of being squeezed to that width. */
-  .measure-panel {
-    width: auto;
   }
 
   .burger-btn {
