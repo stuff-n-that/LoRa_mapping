@@ -4,6 +4,7 @@ import Toolbar from './components/Toolbar'
 import MapLayersPanel from './components/MapLayersPanel'
 import RegionPicker from './components/RegionPicker'
 import NodeTypeFilter from './components/NodeTypeFilter'
+import MeasurePanel from './components/MeasurePanel'
 import { ROLE_CATEGORIES } from './utils/nodeRoles'
 import { loadNodes, persistNodes } from './utils/nodeStore'
 import './App.css'
@@ -18,6 +19,8 @@ export default function App() {
   const [baseLayer, setBaseLayer] = useState('streets')
   const [showMeshcore, setShowMeshcore] = useState(true)
   const [showMeshtastic, setShowMeshtastic] = useState(true)
+  const [measureMode, setMeasureMode] = useState('none')
+  const [measureInfo, setMeasureInfo] = useState({ stage: 'idle', text: null })
   // Only affects layout below the mobile breakpoint (see .panels-drawer in
   // App.css) — above it the panel stack is always visible and this button
   // is hidden, so the two states can never disagree.
@@ -65,6 +68,7 @@ export default function App() {
           />
           <RegionPicker onNodesLoaded={handleRegionLoaded} onSelectionCountChange={setSelectedRegionCount} />
           <NodeTypeFilter enabledCategories={enabledRoleCategories} onChange={setEnabledRoleCategories} />
+          <MeasurePanel mode={measureMode} onModeChange={setMeasureMode} stage={measureInfo.stage} resultText={measureInfo.text} />
         </div>
       </div>
 
@@ -74,6 +78,8 @@ export default function App() {
         baseLayer={baseLayer}
         showMeshcore={showMeshcore}
         showMeshtastic={showMeshtastic}
+        measureMode={measureMode}
+        onMeasureChange={setMeasureInfo}
       />
     </div>
   )

@@ -21,7 +21,8 @@
 .toolbar,
 .region-panel,
 .node-type-panel,
-.layers-panel {
+.layers-panel,
+.measure-panel {
   background: rgba(27, 27, 31, 0.92);
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 10px;
@@ -257,6 +258,44 @@
   width: 16px;
   height: 16px;
   flex-shrink: 0;
+}
+
+.measure-tools {
+  display: flex;
+  gap: 8px;
+}
+
+.measure-tool-btn {
+  flex: 1;
+  background: #17171a;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 6px;
+  color: #f2f2f2;
+  font-size: 13px;
+  padding: 8px 10px;
+  min-height: 36px;
+  cursor: pointer;
+}
+
+.measure-tool-btn.active {
+  background: rgba(255, 204, 0, 0.15);
+  border-color: rgba(255, 204, 0, 0.6);
+  color: #ffcc00;
+}
+
+.measure-status {
+  margin-top: 8px;
+}
+
+.measure-result {
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.measure-hint {
+  margin-top: 2px;
+  font-size: 11px;
+  opacity: 0.6;
 }
 
 @media (max-width: 520px) {

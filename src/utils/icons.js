@@ -27,3 +27,43 @@ export function nodeIcon(network, source = 'manual') {
   cache.set(cacheKey, icon)
   return icon
 }
+
+const MEASURE_COLOR = '#ffcc00'
+let measureHandleCache = null
+let measureCenterCache = null
+
+// Draggable endpoint/radius handle for the measure tools — a distinct color
+// from the node markers so it's never mistaken for a MeshCore/Meshtastic node.
+export function measureHandleIcon() {
+  if (!measureHandleCache) {
+    measureHandleCache = L.divIcon({
+      className: 'measure-handle',
+      html: `<span style="
+        display:block;width:14px;height:14px;border-radius:50%;
+        background:${MEASURE_COLOR};border:2px solid #0b0b0d;
+        box-shadow:0 1px 3px rgba(0,0,0,0.6);cursor:grab;
+      "></span>`,
+      iconSize: [14, 14],
+      iconAnchor: [7, 7],
+    })
+  }
+  return measureHandleCache
+}
+
+// Fixed (non-draggable) circle-center marker — smaller than the handle so
+// the draggable radius handle is the obvious thing to grab.
+export function measureCenterIcon() {
+  if (!measureCenterCache) {
+    measureCenterCache = L.divIcon({
+      className: 'measure-center',
+      html: `<span style="
+        display:block;width:10px;height:10px;border-radius:50%;
+        background:${MEASURE_COLOR};border:2px solid #0b0b0d;
+        box-shadow:0 1px 3px rgba(0,0,0,0.6);
+      "></span>`,
+      iconSize: [10, 10],
+      iconAnchor: [5, 5],
+    })
+  }
+  return measureCenterCache
+}
