@@ -2,6 +2,7 @@ import { useMemo } from 'react'
 import { MapContainer, TileLayer, Marker, Popup, ZoomControl } from 'react-leaflet'
 import MarkerClusterGroup from 'react-leaflet-cluster'
 import { nodeIcon } from '../utils/icons'
+import MeasureTools from './MeasureTools'
 
 // Base layer selection now lives in MapLayersPanel (styled to match the
 // rest of the app) instead of Leaflet's own default-styled LayersControl —
@@ -63,7 +64,7 @@ function NodePopup({ node, onDelete }) {
   )
 }
 
-export default function MapView({ nodes, onDeleteNode, baseLayer, showMeshcore, showMeshtastic }) {
+export default function MapView({ nodes, onDeleteNode, baseLayer, showMeshcore, showMeshtastic, measureMode, onMeasureChange }) {
   const meshcoreNodes = useMemo(() => nodes.filter((n) => n.network === 'meshcore'), [nodes])
   const meshtasticNodes = useMemo(() => nodes.filter((n) => n.network === 'meshtastic'), [nodes])
   const layer = BASE_LAYERS[baseLayer] || BASE_LAYERS.streets
@@ -102,6 +103,8 @@ export default function MapView({ nodes, onDeleteNode, baseLayer, showMeshcore, 
           ))}
         </MarkerClusterGroup>
       )}
+
+      <MeasureTools mode={measureMode} onChange={onMeasureChange} />
     </MapContainer>
   )
 }
