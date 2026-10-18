@@ -13,6 +13,20 @@
 // build a fetch URL). A tile with no file simply has no building data —
 // not an error, just nothing drawn there.
 //
+// Downloaded as `-f geojsonseq` (one GeoJSON Feature per line) and streamed
+// line-by-line, NOT as a single `geojson` FeatureCollection read into memory
+// with JSON.parse: a real country-sized bbox (Denmark's mainland piece
+// alone came back as 2.58M buildings / 1.7GB of text) exceeds V8's maximum
+// string length long before it gets anywhere near that many buildings,
+// which JSON.parse surfaces as an opaque RangeError — caught by an earlier,
+// too-broad try/catch here and silently logged as "no data" rather than the
+// real failure. Streaming avoids ever holding the raw download as one string.
+//
+// Tiles are also flushed to disk after each country PIECE rather than once
+// at the very end of the whole run, so memory stays bounded to "one piece's
+// buildings" instead of compounding across every requested country, and a
+// later piece failing doesn't lose already-processed work.
+//
 // Needs the official Overture CLI on PATH: `pip install overturemaps`.
 // https://docs.overturemaps.org/getting-data/overturemaps-py/
 //
@@ -30,7 +44,9 @@
 
 import { execFile } from 'node:child_process'
 import { promisify } from 'node:util'
+import { createReadStream } from 'node:fs'
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
+import { createInterface } from 'node:readline'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import simplify from '@turf/simplify'
@@ -80,16 +96,39 @@ async function downloadBBox(bbox, outPath) {
   const [w, s, e, n] = bbox
   await execFileAsync(
     'overturemaps',
-    ['download', `--bbox=${w},${s},${e},${n}`, '-f', 'geojson', '--type=building', '-o', outPath],
+    ['download', `--bbox=${w},${s},${e},${n}`, '-f', 'geojsonseq', '--type=building', '-o', outPath],
     { maxBuffer: 1024 * 1024 * 10 },
   )
 }
 
-// Fetches and simplifies one country's buildings, adding them into the
-// shared `tiles` map (mutated in place) rather than returning its own set —
-// two countries sharing a border tile both just add their buildings to the
-// same bucket, so nothing has to be merged back together afterward.
-async function processCountry(code, countryName, tiles, tmpDir) {
+// Merges this run's in-memory tiles into whatever's already on disk for
+// each one (a tile may already have a file from an earlier run over a
+// neighboring country/piece) and clears the map afterward, so the caller's
+// memory usage resets to zero between pieces instead of growing for the
+// whole invocation.
+async function flushTiles(tiles, outDir) {
+  await mkdir(outDir, { recursive: true })
+  let tileCount = 0
+  for (const { x, y, features } of tiles.values()) {
+    const path = join(outDir, `${x}_${y}.json`)
+    let existingFeatures = []
+    try {
+      existingFeatures = JSON.parse(await readFile(path, 'utf8')).features || []
+    } catch {
+      // no existing tile, or unreadable — start fresh
+    }
+    const merged = [...existingFeatures, ...features]
+    await writeFile(path, JSON.stringify({ type: 'FeatureCollection', features: merged }))
+    tileCount++
+  }
+  tiles.clear()
+  return tileCount
+}
+
+// Fetches, simplifies and tile-buckets one country, flushing to disk after
+// each bbox piece. Returns running totals for the index — the actual tile
+// files are already on disk by the time this returns.
+async function processCountry(code, countryName, outDir, tmpDir) {
   const bboxes = getCountryBBoxes(code)
   if (!bboxes || bboxes.length === 0) {
     console.error(`No boundary found for ${code} — skipping.`)
@@ -98,10 +137,10 @@ async function processCountry(code, countryName, tiles, tmpDir) {
 
   let totalBuildings = 0
   let totalDropped = 0
-  const touchedTileKeys = new Set()
+  let tileFilesTouched = 0
 
   for (const [i, bbox] of bboxes.entries()) {
-    const tmpFile = join(tmpDir, `${code}-${i}.geojson`)
+    const tmpFile = join(tmpDir, `${code}-${i}.ndjson`)
     console.log(`  piece ${i + 1}/${bboxes.length}: bbox [${bbox.map((n) => n.toFixed(3)).join(', ')}] ...`)
     try {
       await downloadBBox(bbox, tmpFile)
@@ -110,57 +149,71 @@ async function processCountry(code, countryName, tiles, tmpDir) {
       continue
     }
 
-    let raw
+    const tiles = new Map() // "x_y" -> { x, y, features: [] } — this piece only
+    let pieceBuildings = 0
+    let pieceDropped = 0
+
+    let rl
     try {
-      raw = JSON.parse(await readFile(tmpFile, 'utf8'))
-    } catch {
-      console.log(`  piece ${i + 1}: no data`)
-      continue
+      rl = createInterface({ input: createReadStream(tmpFile, 'utf8'), crlfDelay: Infinity })
+      for await (const line of rl) {
+        if (!line.trim()) continue
+        let feature
+        try {
+          feature = JSON.parse(line)
+        } catch {
+          continue // one malformed line shouldn't abort the whole piece
+        }
+        pieceBuildings++
+
+        let geometry = feature.geometry
+        try {
+          const simplified = simplify(feature, { tolerance: SIMPLIFY_TOLERANCE_DEG, highQuality: false, mutate: false })
+          if (simplified.geometry?.coordinates?.length) geometry = simplified.geometry
+        } catch {
+          // keep the original (unsimplified) geometry rather than drop the building
+        }
+        if (!geometry) {
+          pieceDropped++
+          continue
+        }
+        geometry = { type: geometry.type, coordinates: roundCoords(geometry.coordinates, COORD_PRECISION) }
+
+        const [cx, cy] = geometryBBoxCenter(feature.geometry)
+        const x = lonToTileX(cx)
+        const y = latToTileY(cy)
+        const key = tileKey(x, y)
+        if (!tiles.has(key)) tiles.set(key, { x, y, features: [] })
+
+        const height = feature.properties?.height
+        const levels = feature.properties?.num_floors
+        tiles.get(key).features.push({
+          type: 'Feature',
+          geometry,
+          properties: {
+            h: typeof height === 'number' ? Math.round(height * 10) / 10 : null,
+            lvl: typeof levels === 'number' ? levels : null,
+          },
+        })
+      }
+    } catch (err) {
+      console.error(`  reading piece ${i + 1} failed: ${err.message}`)
     } finally {
+      rl?.close()
       await rm(tmpFile, { force: true })
       await rm(`${tmpFile}.state`, { force: true })
     }
 
-    for (const feature of raw.features || []) {
-      totalBuildings++
-      let geometry = feature.geometry
-      try {
-        const simplified = simplify(feature, { tolerance: SIMPLIFY_TOLERANCE_DEG, highQuality: false, mutate: false })
-        if (simplified.geometry?.coordinates?.length) geometry = simplified.geometry
-      } catch {
-        // keep the original (unsimplified) geometry rather than drop the building
-      }
-      if (!geometry) {
-        totalDropped++
-        continue
-      }
-      geometry = { type: geometry.type, coordinates: roundCoords(geometry.coordinates, COORD_PRECISION) }
-
-      const [cx, cy] = geometryBBoxCenter(feature.geometry)
-      const x = lonToTileX(cx)
-      const y = latToTileY(cy)
-      const key = tileKey(x, y)
-      touchedTileKeys.add(key)
-      if (!tiles.has(key)) tiles.set(key, { x, y, features: [], countries: new Set() })
-      const tile = tiles.get(key)
-      tile.countries.add(code)
-
-      const height = feature.properties?.height
-      const levels = feature.properties?.num_floors
-      tile.features.push({
-        type: 'Feature',
-        geometry,
-        properties: {
-          h: typeof height === 'number' ? Math.round(height * 10) / 10 : null,
-          lvl: typeof levels === 'number' ? levels : null,
-        },
-      })
-    }
+    const flushed = await flushTiles(tiles, outDir)
+    tileFilesTouched += flushed
+    totalBuildings += pieceBuildings
+    totalDropped += pieceDropped
+    console.log(`  piece ${i + 1}: ${pieceBuildings - pieceDropped}/${pieceBuildings} buildings kept across ${flushed} tiles`)
   }
 
   const kept = totalBuildings - totalDropped
-  console.log(`  ${kept}/${totalBuildings} buildings kept across ${touchedTileKeys.size} tiles for ${countryName}`)
-  return { code, name: countryName, tileCount: touchedTileKeys.size, buildingCount: kept }
+  console.log(`  ${kept}/${totalBuildings} buildings kept across ~${tileFilesTouched} tile files for ${countryName}`)
+  return { code, name: countryName, tileCount: tileFilesTouched, buildingCount: kept }
 }
 
 async function main() {
@@ -189,7 +242,6 @@ async function main() {
 
   const known = new Map(listCountries().map((c) => [c.code, c.name]))
   const tmpDir = await mkdtemp(join(tmpdir(), 'building-tiles-'))
-  const tiles = new Map() // "x_y" -> { x, y, features: [], countries: Set }
   const results = []
 
   try {
@@ -200,43 +252,24 @@ async function main() {
         continue
       }
       console.log(`${name} (${code}):`)
-      const result = await processCountry(code, name, tiles, tmpDir)
+      const result = await processCountry(code, name, outDir, tmpDir)
       if (result) results.push(result)
     }
   } finally {
     await rm(tmpDir, { recursive: true, force: true })
   }
 
-  await mkdir(outDir, { recursive: true })
-
-  // A tile this run touched may already have a file from an earlier run
-  // over a neighboring country — merge into it rather than clobber it.
-  const tileSummaries = []
-  for (const { x, y, features, countries } of tiles.values()) {
-    const path = join(outDir, `${x}_${y}.json`)
-    let existingFeatures = []
-    try {
-      existingFeatures = JSON.parse(await readFile(path, 'utf8')).features || []
-    } catch {
-      // no existing tile, or unreadable — start fresh
-    }
-    const merged = [...existingFeatures, ...features]
-    await writeFile(path, JSON.stringify({ type: 'FeatureCollection', features: merged }))
-    tileSummaries.push({ x, y, count: merged.length, countries: [...countries] })
-  }
-
+  // Tile files are already written (flushed per-piece above) — this just
+  // rebuilds the maintainer-facing index.json manifest from the actual
+  // directory contents plus this run's country-level tallies, since
+  // per-tile counts weren't kept in memory across pieces/countries.
   const indexPath = join(outDir, 'index.json')
-  let existing = { tiles: [], countries: [] }
+  let existing = { countries: [] }
   try {
     existing = JSON.parse(await readFile(indexPath, 'utf8'))
   } catch {
     // no index yet, or unreadable — start fresh
   }
-
-  const tileByKey = new Map((existing.tiles || []).map((t) => [tileKey(t.x, t.y), t]))
-  for (const t of tileSummaries) tileByKey.set(tileKey(t.x, t.y), t)
-  const mergedTiles = [...tileByKey.values()].sort((a, b) => a.x - b.x || a.y - b.y)
-
   const countryByCode = new Map((existing.countries || []).map((c) => [c.code, c]))
   for (const r of results) {
     countryByCode.set(r.code, { code: r.code, name: r.name, tileCount: r.tileCount, buildingCount: r.buildingCount })
@@ -245,14 +278,10 @@ async function main() {
 
   await writeFile(
     indexPath,
-    JSON.stringify(
-      { zoom: BUILDING_TILE_ZOOM, generatedAt: new Date().toISOString(), tiles: mergedTiles, countries: mergedCountries },
-      null,
-      2,
-    ),
+    JSON.stringify({ zoom: BUILDING_TILE_ZOOM, generatedAt: new Date().toISOString(), countries: mergedCountries }, null, 2),
   )
 
-  console.log(`\nDone. ${results.length} countr${results.length === 1 ? 'y' : 'ies'} written to ${outDir}/ (${mergedTiles.length} tiles total)`)
+  console.log(`\nDone. ${results.length} countr${results.length === 1 ? 'y' : 'ies'} written to ${outDir}/`)
 }
 
 main()
