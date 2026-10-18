@@ -103,4 +103,23 @@ npm run pull-local-node -- --lat <your latitude> --lng <your longitude> --host 1
 
 The data-shape logic (`src/api/meshtasticLocal.js`'s `normalizeLocalNodes`, and the plausibility check itself) is unit-verified against synthetic data mimicking `meshtastic-python`'s well-established `Interface.nodes` shape. **The device connection itself is not yet smoke-tested against real hardware** — there's no Meshtastic node reachable from this environment to test against, so expect to debug field names against whatever `meshtastic-python` version you actually install. Not yet wired into the map UI (no `source: 'local'` marker styling or on-screen toggle) — this is CLI-only for now, a starting point for when real hardware is available to validate and finish the UI against. MeshCore's equivalent isn't started: its local/companion protocol needs checking against the actual firmware source once real hardware is available, unlike Meshtastic's which is well-documented.
 
+### Building-height overlay (basic layer, data pipeline only — not wired into the map UI yet)
+
+`scripts/pull-building-tiles.mjs` pulls building footprints (height and floor-count, where available) from [Overture Maps](https://overturemaps.org/) for one or more countries and chunks them into a z14 slippy-map tile grid under `public/buildings/<country>/<x>_<y>.json`, plus a per-country `index.json` and a top-level `public/buildings/index.json`. The intended end use is a basic LoRa-line-of-sight reference layer on the existing node map — "is there a building between these two points" — not survey-grade heights.
+
+```bash
+npm run pull-building-tiles -- US KE PL          # one or more ISO-alpha-2 codes
+npm run pull-building-tiles -- US --out=public/buildings
+```
+
+Needs the official Overture CLI on `PATH`: `pip install overturemaps` ([docs](https://docs.overturemaps.org/getting-data/overturemaps-py/)).
+
+**Why a z14 tile grid, not per-country sharding like nodes:** buildings are far denser than node points — dense city tiles ran ~1MB and rural tiles ~10KB at z14 in testing, but the same area at z12/z13 ran 3–16MB per tile, too big for one fetch. Each country is still fetched as one bulk `--bbox` download (not one request per tile — at z14 a mid-sized country can mean tens of thousands of tiles, so per-tile downloads would mean tens of thousands of API calls), then simplified and locally partitioned into tiles; only tiles that actually contain a building get written.
+
+**Real coverage, measured, not assumed:** a full Luxembourg pull (332,018 buildings) came back with only **10.1%** carrying a height or floor-count at all — far lower than the ~91% seen in a cherry-picked dense San Francisco block, or the near-zero seen in a Nairobi CBD sample. Treat "no height data" as *unknown*, never as *no obstruction* — this is dominated by rural/suburban area, not an edge case. The stored fields are deliberately minimal (`h` in metres, `lvl` as floor count, both nullable) — no height-estimation fallback (e.g. floors × an assumed storey height) is baked into the data; that's a rendering-time decision for whatever consumes these tiles, not something to commit to this early.
+
+Geometry is simplified (Douglas-Peucker, ~2.2m tolerance via `@turf/simplify`) and coordinates rounded to 5 decimal places (~1.1m) — validated visually indistinguishable from the original at this tolerance, cutting file size by roughly 55–65% combined with dropping Overture's per-building source-provenance metadata (not needed to render, only to audit).
+
+Not yet wired into the map UI — no layer toggle, no renderer, no color scale for height bands. This is the data pipeline only, a starting point for that frontend work.
+
 Other sites from the original brief — [MeshCore Coverage](https://meshcore.co.uk/coverage.html), [NoDakMesh](https://nodakmesh.org/meshcore/map), [Meshtastic Map (friendlydev)](https://meshtastic-map.friendlydev.com/), [MeshMap.net](https://meshmap.net/) — were not wired up. `friendlydev` and NoDakMesh appear to aggregate from the same underlying sources already included; MeshMap.net's documented API (`docs.meshmap.com`) requires an API key/JWT rather than being open for anonymous cross-site fetches, and the coverage layer (predicted RF coverage, not live nodes) would be a separate, larger effort. Adding any of these later means finding their actual data endpoint (usually only discoverable from source, not docs) and adding a new file under `src/api/` following the same pattern.

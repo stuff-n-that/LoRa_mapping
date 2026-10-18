@@ -117,3 +117,47 @@ export function getCountryForPoint(lat, lng) {
 export function listCountries() {
   return countryFeatures.map(({ code, name }) => ({ code, name })).sort((a, b) => a.name.localeCompare(b.name))
 }
+
+// Bounding box(es) for a country, as [west, south, east, north] — for
+// querying an external API by area (e.g. Overture's --bbox), not for the
+// point-in-polygon test above. A country can need more than one: besides
+// genuinely disjoint pieces (islands, exclaves), a piece that crosses the
+// antimeridian can't be expressed as one valid west<east box, so it's split
+// back into a normal eastern-hemisphere box and a normal western-hemisphere
+// box here (piece.bbox/rings are in the unwrapped 0–360ish coordinates set
+// up above for the point test, not directly usable as a real-world bbox).
+export function getCountryBBoxes(code) {
+  const country = countryFeatures.find((c) => c.code === code)
+  if (!country) return null
+
+  const bboxes = []
+  for (const piece of country.pieces) {
+    if (!piece.wraps) {
+      bboxes.push(piece.bbox)
+      continue
+    }
+    let eastMin = Infinity
+    let eastMax = -Infinity
+    let westMin = Infinity
+    let westMax = -Infinity
+    let south = Infinity
+    let north = -Infinity
+    for (const ring of piece.rings) {
+      for (const [ux, y] of ring) {
+        const x = ux > 180 ? ux - 360 : ux
+        if (y < south) south = y
+        if (y > north) north = y
+        if (x >= 0) {
+          if (x < eastMin) eastMin = x
+          if (x > eastMax) eastMax = x
+        } else {
+          if (x < westMin) westMin = x
+          if (x > westMax) westMax = x
+        }
+      }
+    }
+    if (eastMax > -Infinity) bboxes.push([eastMin, south, eastMax, north])
+    if (westMax > -Infinity) bboxes.push([westMin, south, westMax, north])
+  }
+  return bboxes
+}
