@@ -8,7 +8,8 @@
     "build": "vite build",
     "preview": "vite preview",
     "pull-live-nodes": "node scripts/pull-live-nodes.mjs",
-    "pull-local-node": "node scripts/pull-local-node.mjs"
+    "pull-local-node": "node scripts/pull-local-node.mjs",
+    "pull-building-tiles": "node scripts/pull-building-tiles.mjs"
   },
   "dependencies": {
     "leaflet": "^1.9.4",
@@ -20,6 +21,7 @@
     "react-leaflet-cluster": "^2.1.0"
   },
   "devDependencies": {
+    "@turf/simplify": "^7.4.0",
     "@vitejs/plugin-react": "^4.3.4",
     "i18n-iso-countries": "^7.14.0",
     "topojson-client": "^3.1.0",
