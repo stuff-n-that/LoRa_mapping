@@ -13,10 +13,12 @@ export default function MapLayersPanel({
   showMeshtastic,
   onToggleMeshcore,
   onToggleMeshtastic,
+  showBuildings,
+  onToggleBuildings,
 }) {
   const baseLabel = BASE_LAYER_OPTIONS.find((o) => o.key === baseLayer)?.label.split(' ')[0] || 'Streets'
-  const overlayCount = [showMeshcore, showMeshtastic].filter(Boolean).length
-  const summary = `${baseLabel} · ${overlayCount}/2 overlays`
+  const overlayCount = [showMeshcore, showMeshtastic, showBuildings].filter(Boolean).length
+  const summary = `${baseLabel} · ${overlayCount}/3 overlays`
 
   return (
     <CollapsibleSection title="Map layers" summary={summary} className="layers-panel">
@@ -38,6 +40,10 @@ export default function MapLayersPanel({
         <label className="layers-item">
           <input type="checkbox" checked={showMeshtastic} onChange={(e) => onToggleMeshtastic(e.target.checked)} />
           <span>Meshtastic nodes</span>
+        </label>
+        <label className="layers-item">
+          <input type="checkbox" checked={showBuildings} onChange={(e) => onToggleBuildings(e.target.checked)} />
+          <span>Buildings by height (zoom in, where available)</span>
         </label>
       </div>
     </CollapsibleSection>

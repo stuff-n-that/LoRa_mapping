@@ -19,6 +19,10 @@ export default function App() {
   const [baseLayer, setBaseLayer] = useState('streets')
   const [showMeshcore, setShowMeshcore] = useState(true)
   const [showMeshtastic, setShowMeshtastic] = useState(true)
+  // Off by default: building data only exists for whichever countries have
+  // been pre-generated (see scripts/pull-building-tiles.mjs), so an on-by-
+  // default layer would render as empty/confusing almost everywhere.
+  const [showBuildings, setShowBuildings] = useState(false)
   const [measureMode, setMeasureMode] = useState('none')
   const [measureInfo, setMeasureInfo] = useState({ stage: 'idle', text: null })
   // Only affects layout below the mobile breakpoint (see .panels-drawer in
@@ -65,6 +69,8 @@ export default function App() {
             showMeshtastic={showMeshtastic}
             onToggleMeshcore={setShowMeshcore}
             onToggleMeshtastic={setShowMeshtastic}
+            showBuildings={showBuildings}
+            onToggleBuildings={setShowBuildings}
           />
           <RegionPicker onNodesLoaded={handleRegionLoaded} onSelectionCountChange={setSelectedRegionCount} />
           <NodeTypeFilter enabledCategories={enabledRoleCategories} onChange={setEnabledRoleCategories} />
@@ -82,6 +88,7 @@ export default function App() {
         baseLayer={baseLayer}
         showMeshcore={showMeshcore}
         showMeshtastic={showMeshtastic}
+        showBuildings={showBuildings}
         measureMode={measureMode}
         onMeasureChange={setMeasureInfo}
       />

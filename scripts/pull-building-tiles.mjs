@@ -6,15 +6,23 @@
 // than node points, so the per-country sharding that works for nodes
 // doesn't scale the same way here. See scripts/lib/tileGrid.mjs for why z14.
 //
+// Tiles are written FLAT (public/buildings/<x>_<y>.json), not nested under
+// a country folder: the frontend fetches purely by tile coordinate, with no
+// need to know which country a given viewport is in (that would mean
+// shipping the Node-only country-boundary lookup to the browser just to
+// build a fetch URL). A tile with no file simply has no building data —
+// not an error, just nothing drawn there.
+//
 // Needs the official Overture CLI on PATH: `pip install overturemaps`.
 // https://docs.overturemaps.org/getting-data/overturemaps-py/
 //
 // Unlike pull-live-nodes.mjs, this is NOT run on the 30-minute schedule —
 // building footprints don't change on that cadence, and a pull+simplify
 // pass for a country takes real time (one bulk bbox download per country
-// piece, not one request per tile — see the tiling-decision discussion in
-// the project history for why). Run it by hand for whichever countries you
-// want building data available for.
+// piece, not one request per tile — at z14 a mid-sized country can mean
+// tens of thousands of tiles, so per-tile downloads would mean tens of
+// thousands of API calls). Run it by hand for whichever countries you want
+// building data available for.
 //
 // Usage: node scripts/pull-building-tiles.mjs <ISO-alpha-2> [<ISO-alpha-2> ...] [--out=<dir>]
 //   node scripts/pull-building-tiles.mjs US KE PL
@@ -77,16 +85,20 @@ async function downloadBBox(bbox, outPath) {
   )
 }
 
-async function processCountry(code, countryName, outDir, tmpDir) {
+// Fetches and simplifies one country's buildings, adding them into the
+// shared `tiles` map (mutated in place) rather than returning its own set —
+// two countries sharing a border tile both just add their buildings to the
+// same bucket, so nothing has to be merged back together afterward.
+async function processCountry(code, countryName, tiles, tmpDir) {
   const bboxes = getCountryBBoxes(code)
   if (!bboxes || bboxes.length === 0) {
     console.error(`No boundary found for ${code} — skipping.`)
     return null
   }
 
-  const tiles = new Map() // "x_y" -> { x, y, features: [] }
   let totalBuildings = 0
   let totalDropped = 0
+  const touchedTileKeys = new Set()
 
   for (const [i, bbox] of bboxes.entries()) {
     const tmpFile = join(tmpDir, `${code}-${i}.geojson`)
@@ -128,11 +140,14 @@ async function processCountry(code, countryName, outDir, tmpDir) {
       const x = lonToTileX(cx)
       const y = latToTileY(cy)
       const key = tileKey(x, y)
-      if (!tiles.has(key)) tiles.set(key, { x, y, features: [] })
+      touchedTileKeys.add(key)
+      if (!tiles.has(key)) tiles.set(key, { x, y, features: [], countries: new Set() })
+      const tile = tiles.get(key)
+      tile.countries.add(code)
 
       const height = feature.properties?.height
       const levels = feature.properties?.num_floors
-      tiles.get(key).features.push({
+      tile.features.push({
         type: 'Feature',
         geometry,
         properties: {
@@ -143,26 +158,9 @@ async function processCountry(code, countryName, outDir, tmpDir) {
     }
   }
 
-  if (tiles.size === 0) {
-    console.log(`  no buildings found for ${code}`)
-    return { code, name: countryName, tileCount: 0, buildingCount: 0 }
-  }
-
-  const countryDir = join(outDir, code)
-  await mkdir(countryDir, { recursive: true })
-  const tileIndex = []
-  for (const { x, y, features } of tiles.values()) {
-    await writeFile(join(countryDir, `${x}_${y}.json`), JSON.stringify({ type: 'FeatureCollection', features }))
-    tileIndex.push({ x, y, count: features.length })
-  }
-  await writeFile(
-    join(countryDir, 'index.json'),
-    JSON.stringify({ zoom: BUILDING_TILE_ZOOM, generatedAt: new Date().toISOString(), tiles: tileIndex }),
-  )
-
   const kept = totalBuildings - totalDropped
-  console.log(`  wrote ${tiles.size} tiles (${kept}/${totalBuildings} buildings kept) for ${countryName}`)
-  return { code, name: countryName, tileCount: tiles.size, buildingCount: kept }
+  console.log(`  ${kept}/${totalBuildings} buildings kept across ${touchedTileKeys.size} tiles for ${countryName}`)
+  return { code, name: countryName, tileCount: touchedTileKeys.size, buildingCount: kept }
 }
 
 async function main() {
@@ -191,6 +189,7 @@ async function main() {
 
   const known = new Map(listCountries().map((c) => [c.code, c.name]))
   const tmpDir = await mkdtemp(join(tmpdir(), 'building-tiles-'))
+  const tiles = new Map() // "x_y" -> { x, y, features: [], countries: Set }
   const results = []
 
   try {
@@ -201,33 +200,59 @@ async function main() {
         continue
       }
       console.log(`${name} (${code}):`)
-      const result = await processCountry(code, name, outDir, tmpDir)
+      const result = await processCountry(code, name, tiles, tmpDir)
       if (result) results.push(result)
     }
   } finally {
     await rm(tmpDir, { recursive: true, force: true })
   }
 
+  await mkdir(outDir, { recursive: true })
+
+  // A tile this run touched may already have a file from an earlier run
+  // over a neighboring country — merge into it rather than clobber it.
+  const tileSummaries = []
+  for (const { x, y, features, countries } of tiles.values()) {
+    const path = join(outDir, `${x}_${y}.json`)
+    let existingFeatures = []
+    try {
+      existingFeatures = JSON.parse(await readFile(path, 'utf8')).features || []
+    } catch {
+      // no existing tile, or unreadable — start fresh
+    }
+    const merged = [...existingFeatures, ...features]
+    await writeFile(path, JSON.stringify({ type: 'FeatureCollection', features: merged }))
+    tileSummaries.push({ x, y, count: merged.length, countries: [...countries] })
+  }
+
   const indexPath = join(outDir, 'index.json')
-  let existingCountries = []
+  let existing = { tiles: [], countries: [] }
   try {
-    existingCountries = JSON.parse(await readFile(indexPath, 'utf8')).countries || []
+    existing = JSON.parse(await readFile(indexPath, 'utf8'))
   } catch {
     // no index yet, or unreadable — start fresh
   }
-  const byCode = new Map(existingCountries.map((c) => [c.code, c]))
-  for (const r of results) {
-    byCode.set(r.code, { code: r.code, name: r.name, tileCount: r.tileCount, buildingCount: r.buildingCount })
-  }
-  const mergedIndex = [...byCode.values()].sort((a, b) => a.name.localeCompare(b.name))
 
-  await mkdir(outDir, { recursive: true })
+  const tileByKey = new Map((existing.tiles || []).map((t) => [tileKey(t.x, t.y), t]))
+  for (const t of tileSummaries) tileByKey.set(tileKey(t.x, t.y), t)
+  const mergedTiles = [...tileByKey.values()].sort((a, b) => a.x - b.x || a.y - b.y)
+
+  const countryByCode = new Map((existing.countries || []).map((c) => [c.code, c]))
+  for (const r of results) {
+    countryByCode.set(r.code, { code: r.code, name: r.name, tileCount: r.tileCount, buildingCount: r.buildingCount })
+  }
+  const mergedCountries = [...countryByCode.values()].sort((a, b) => a.name.localeCompare(b.name))
+
   await writeFile(
     indexPath,
-    JSON.stringify({ zoom: BUILDING_TILE_ZOOM, generatedAt: new Date().toISOString(), countries: mergedIndex }, null, 2),
+    JSON.stringify(
+      { zoom: BUILDING_TILE_ZOOM, generatedAt: new Date().toISOString(), tiles: mergedTiles, countries: mergedCountries },
+      null,
+      2,
+    ),
   )
 
-  console.log(`\nDone. ${results.length} countr${results.length === 1 ? 'y' : 'ies'} written to ${outDir}/`)
+  console.log(`\nDone. ${results.length} countr${results.length === 1 ? 'y' : 'ies'} written to ${outDir}/ (${mergedTiles.length} tiles total)`)
 }
 
 main()
