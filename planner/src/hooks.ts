@@ -2,6 +2,8 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import type { GridGeometry } from './engine/coverage'
 import { fetchRegion, fetchRegionIndex, type ExistingNode, type RegionInfo } from './nodes'
 import { renderToObjectUrl, type RenderMode } from './render'
+import { linkPlanKey, type LinkPlan } from './linkModel'
+import { runLink, type LinkAnalysis } from './linkRun'
 
 export interface ExistingNodesState {
   index: RegionInfo[]
@@ -89,4 +91,41 @@ export function useOverlay(geom: GridGeometry | null, margins: Float32Array | nu
     }
   }, [geom, margins, minMargin, mode])
   return overlay
+}
+
+export type LinkState = { status: 'idle' } | { status: 'loading' } | { status: 'error'; message: string } | { status: 'ready'; analysis: LinkAnalysis }
+
+/**
+ * Analyses a link whenever it changes. A short pause lets a dragged end point settle before any
+ * terrain is fetched, and the previous result stays on screen (as `ready`) while the next one loads.
+ */
+export function useLinkAnalysis(plan: LinkPlan | null): LinkState {
+  const [state, setState] = useState<LinkState>({ status: 'idle' })
+  const key = plan ? linkPlanKey(plan) : null
+  const planRef = useRef(plan)
+  planRef.current = plan
+
+  useEffect(() => {
+    const current = planRef.current
+    if (!current) {
+      setState({ status: 'idle' })
+      return
+    }
+    const ac = new AbortController()
+    const timer = setTimeout(() => {
+      setState((s) => (s.status === 'ready' ? s : { status: 'loading' }))
+      runLink(current, ac.signal)
+        .then((analysis) => !ac.signal.aborted && setState({ status: 'ready', analysis }))
+        .catch((err) => {
+          if (ac.signal.aborted || (err instanceof DOMException && err.name === 'AbortError')) return
+          setState({ status: 'error', message: err instanceof Error ? err.message : String(err) })
+        })
+    }, 250)
+    return () => {
+      clearTimeout(timer)
+      ac.abort()
+    }
+  }, [key])
+
+  return state
 }

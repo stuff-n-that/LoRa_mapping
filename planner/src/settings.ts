@@ -6,6 +6,7 @@ import { unionGrid, type CoverageJob } from './engine/coverage'
 import { terrainPlan } from './engine/run'
 import { BANDS, RADIO_PRESETS, loraSensitivityDbm, type LinkBudget } from './engine/radio'
 import type { LatLng } from './engine/geo'
+import type { PathRadio } from './engine/link'
 
 export type Network = 'meshtastic' | 'meshcore'
 export type Detail = 'fast' | 'normal' | 'fine'
@@ -74,8 +75,19 @@ export const NODE_DEFAULTS: Omit<PlannedNode, 'id' | 'name' | 'position'> = {
   hTxM: 10,
 }
 
+/** What a link analysis connects: a planned node to another node, or to a point on the map. */
+export type LinkTarget = { kind: 'node'; id: string } | { kind: 'point'; position: LatLng | null }
+
+export interface LinkSpec {
+  /** Id of the node at one end. */
+  from: string
+  to: LinkTarget
+}
+
 export interface Settings {
   nodes: PlannedNode[]
+  /** The link being analysed, if any (open in the panel on the right). */
+  link: LinkSpec | null
   // Shared by every node: the receiving device, and how to calculate.
   rxGainDbi: number
   rxCableLossDb: number
@@ -94,6 +106,7 @@ export interface Settings {
 
 export const DEFAULTS: Settings = {
   nodes: [],
+  link: null,
   rxGainDbi: 2,
   rxCableLossDb: 0,
   hRxM: 2,
@@ -113,6 +126,9 @@ const DETAIL: Record<Detail, { outCellM: number; terrainCellM: number; label: st
   fine: { outCellM: 75, terrainCellM: 60, label: 'Fine' },
 }
 export const DETAIL_LABELS: { id: Detail; label: string }[] = (Object.keys(DETAIL) as Detail[]).map((id) => ({ id, label: DETAIL[id].label }))
+
+/** Terrain sample spacing (metres) for a detail level; links use the same as coverage. */
+export const terrainCellM = (d: Detail) => DETAIL[d].terrainCellM
 
 export function presetFor(id: string) {
   return RADIO_PRESETS.find((p) => p.id === id)
@@ -185,30 +201,48 @@ export function linkBudget(n: PlannedNode, s: Settings): LinkBudget {
 
 // ---- Engine jobs ----------------------------------------------------------------------
 
-/** The job for one node, onto the shared `grid` (see toJobs). */
-export function toJob(s: Settings, node: PlannedNode, grid?: CoverageJob['grid']): CoverageJob {
-  const radiusM = s.radiusKm * 1000
-  const d = DETAIL[s.detail]
-  const terrain = terrainPlan(node.position, radiusM, d.terrainCellM)
+/**
+ * The propagation assumptions shared by coverage and link analysis, so the two always agree.
+ * ITM's time variability is small (under 2 dB between 10% and 99%); the large spread is situation
+ * variability (confidence, roughly +/-9 dB). Cautious planning needs both.
+ */
+export function pathRadio(s: Settings, fMhz: number): PathRadio {
   const ground = GROUND_TYPES.find((g) => g.id === s.groundId) ?? GROUND_TYPES[0]
   return {
-    origin: node.position,
-    hTxM: node.hTxM,
-    hRxM: s.hRxM,
-    fMhz: effectiveFreqMhz(node),
-    budget: linkBudget(node, s),
-    radiusM,
-    outCellM: d.outCellM,
-    // ITM's time variability is small (under 2 dB between 10% and 99%); the large spread is
-    // situation variability (confidence, roughly +/-9 dB). Cautious planning needs both.
-    reliability: s.reliability,
-    confidence: s.reliability,
+    fMhz,
     climate: s.climate,
     n0: 301,
     pol: Polarization.VERTICAL,
     epsilon: ground.epsilon,
     sigma: ground.sigma,
     mdvar: Mdvar.BROADCAST,
+    reliability: s.reliability,
+    confidence: s.reliability,
+  }
+}
+
+/** The job for one node, onto the shared `grid` (see toJobs). */
+export function toJob(s: Settings, node: PlannedNode, grid?: CoverageJob['grid']): CoverageJob {
+  const radiusM = s.radiusKm * 1000
+  const d = DETAIL[s.detail]
+  const terrain = terrainPlan(node.position, radiusM, d.terrainCellM)
+  const radio = pathRadio(s, effectiveFreqMhz(node))
+  return {
+    origin: node.position,
+    hTxM: node.hTxM,
+    hRxM: s.hRxM,
+    fMhz: radio.fMhz,
+    budget: linkBudget(node, s),
+    radiusM,
+    outCellM: d.outCellM,
+    reliability: radio.reliability,
+    confidence: radio.confidence,
+    climate: radio.climate,
+    n0: radio.n0,
+    pol: radio.pol,
+    epsilon: radio.epsilon,
+    sigma: radio.sigma,
+    mdvar: radio.mdvar,
     zoom: terrain.zoom,
     demCellM: terrain.demCellM,
     grid,
@@ -306,6 +340,26 @@ function nodeFromFields(f: (string | undefined)[], index: number): PlannedNode |
   }
 }
 
+/**
+ * A link is written lk=<from>:<to>, with nodes counted from 1 in plan order: "1:2" is node 1 to
+ * node 2, "1:54.5,-3.0" is node 1 to a point, and "1:" is node 1 to a target not yet placed.
+ */
+function parseLink(raw: string | null, nodes: PlannedNode[]): LinkSpec | null {
+  if (!raw) return null
+  const [fromRaw, toRaw] = raw.split(':')
+  const fromIndex = /^\d+$/.test(fromRaw ?? '') ? Number(fromRaw) : 0
+  const from = nodes[fromIndex - 1]
+  if (!from || toRaw === undefined) return null
+  if (toRaw === '') return { from: from.id, to: { kind: 'point', position: null } }
+  if (/^\d+$/.test(toRaw)) {
+    const to = nodes[Number(toRaw) - 1]
+    return to && to.id !== from.id ? { from: from.id, to: { kind: 'node', id: to.id } } : null
+  }
+  const [lat, lng] = toRaw.split(',')
+  const position = parseCoordinates(lat, lng)
+  return position ? { from: from.id, to: { kind: 'point', position } } : null
+}
+
 /** Parse a URL hash (with or without the leading #). Unknown or invalid values fall back to defaults. */
 export function parseSettings(hash: string): Settings {
   const q = new URLSearchParams(hash.replace(/^#/, ''))
@@ -329,6 +383,7 @@ export function parseSettings(hash: string): Settings {
   const sens = q.get('sens')
   return {
     nodes,
+    link: parseLink(q.get('lk'), nodes),
     rxGainDbi: num(q.get('rg'), -10, 25, DEFAULTS.rxGainDbi),
     rxCableLossDb: num(q.get('rc'), 0, 20, DEFAULTS.rxCableLossDb),
     hRxM: num(q.get('rh'), 0.5, 100, DEFAULTS.hRxM),
@@ -391,6 +446,15 @@ export function toHash(s: Settings): string {
     })
   }
 
+  if (s.link) {
+    const fromIndex = s.nodes.findIndex((n) => n.id === s.link?.from) + 1
+    const to = s.link.to
+    const toIndex = to.kind === 'node' ? s.nodes.findIndex((n) => n.id === to.id) + 1 : 0
+    if (fromIndex > 0 && (to.kind === 'point' || toIndex > 0)) {
+      q.set('lk', `${fromIndex}:${to.kind === 'node' ? toIndex : to.position ? `${r(to.position.lat)},${r(to.position.lng)}` : ''}`)
+    }
+  }
+
   const pairs: [string, number, number][] = [
     ['rg', s.rxGainDbi, d.rxGainDbi],
     ['rc', s.rxCableLossDb, d.rxCableLossDb],
@@ -405,6 +469,6 @@ export function toHash(s: Settings): string {
   if (s.groundId !== d.groundId) q.set('gr', s.groundId)
   if (s.sensitivityOverride !== null) q.set('sens', r(s.sensitivityOverride, 1))
   if (s.regions.length) q.set('r', s.regions.join(','))
-  // commas are fine in a URL fragment and much easier to read
-  return q.toString().replace(/%2C/g, ',')
+  // commas and colons are fine in a URL fragment and much easier to read
+  return q.toString().replace(/%2C/g, ',').replace(/%3A/g, ':')
 }

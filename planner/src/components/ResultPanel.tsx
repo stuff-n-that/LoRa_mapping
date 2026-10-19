@@ -23,6 +23,10 @@ export interface DisplayOptions {
   mode: RenderMode
   /** 'all' shows the combined network, or the id of one node. */
   view: string
+  /** Draw lines where the signal crosses each colour band's edge. */
+  contours: boolean
+  /** Show the signal under the pointer as it moves over the map. */
+  hover: boolean
 }
 
 interface Props {
@@ -266,6 +270,13 @@ export default function ResultPanel(p: Props) {
               ]}
             />
           </div>
+
+          <label className="check">
+            <input type="checkbox" checked={p.display.contours} onChange={(e) => p.onDisplayChange({ ...p.display, contours: e.target.checked })} /> Show signal lines (dB)
+          </label>
+          <label className="check">
+            <input type="checkbox" checked={p.display.hover} onChange={(e) => p.onDisplayChange({ ...p.display, hover: e.target.checked })} /> Show the signal as I move the pointer
+          </label>
 
           <div className="row">
             <button type="button" className="btn small" onClick={p.onShare}>
