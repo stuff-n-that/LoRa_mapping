@@ -2,10 +2,13 @@ import { describe, expect, it } from 'vitest'
 import {
   computeCoverageInline,
   createContext,
+  discRows,
   fillProfile,
   gridGeometry,
+  MAX_GRID,
   receivedAt,
   sampleResult,
+  unionGrid,
   type CoverageJob,
 } from '../src/engine/coverage'
 import { fspl } from '../src/engine/fspl'
@@ -187,5 +190,109 @@ describe('profile construction', () => {
       else expect(v).toBe(stored)
     }
     expect(Number.isNaN(sampleResult(result, ORIGIN.lat + 1, ORIGIN.lng))).toBe(true)
+  })
+})
+
+
+describe('shared grid for several nodes', () => {
+  const proj = new AzimuthalEquidistant(ORIGIN)
+  const at2 = (xEast: number, yNorth: number) => {
+    const ll = { lat: 0, lng: 0 }
+    proj.inverse(xEast, yNorth, ll)
+    return ll
+  }
+
+  it('is identical to the single-node grid when there is one node', () => {
+    const one = unionGrid([ORIGIN], 12_000, 400)
+    const plain = gridGeometry(ORIGIN, 12_000, 400)
+    expect(one.n).toBe(plain.n)
+    expect(one.uMin).toBeCloseTo(plain.uMin, 12)
+    expect(one.vMin).toBeCloseTo(plain.vMin, 12)
+    expect(one.uSize).toBeCloseTo(plain.uSize, 12)
+  })
+
+  it('covers every node disc and grows with the spread', () => {
+    const a = ORIGIN
+    const b = at2(15_000, 9_000)
+    const grid = unionGrid([a, b], 6_000, 300)
+    const single = gridGeometry(a, 6_000, 300)
+    expect(grid.uSize).toBeGreaterThan(single.uSize * 1.9)
+    for (const o of [a, b]) {
+      for (const [dx, dy] of [[-6000, 0], [6000, 0], [0, -6000], [0, 6000]]) {
+        const p = new AzimuthalEquidistant(o)
+        const ll = { lat: 0, lng: 0 }
+        p.inverse(dx, dy, ll)
+        const u = (ll.lng + 180) / 360
+        const v = 0.5 - Math.log(Math.tan(Math.PI / 4 + (ll.lat * Math.PI) / 360)) / (2 * Math.PI)
+        expect(u).toBeGreaterThanOrEqual(grid.uMin - 1e-9)
+        expect(u).toBeLessThanOrEqual(grid.uMin + grid.uSize + 1e-9)
+        expect(v).toBeGreaterThanOrEqual(grid.vMin - 1e-9)
+        expect(v).toBeLessThanOrEqual(grid.vMin + grid.uSize + 1e-9)
+      }
+    }
+  })
+
+  it('caps the pixel count, and refuses nodes that are absurdly far apart', () => {
+    expect(unionGrid([ORIGIN, at2(300_000, 0)], 20_000, 50).n).toBe(MAX_GRID)
+    expect(() => unionGrid([ORIGIN, at2(600_000, 0)], 20_000, 150)).toThrow(/too far apart/)
+    expect(() => unionGrid([], 1000, 100)).toThrow(RangeError)
+  })
+
+  it('puts each node on the same raster, with NaN outside its own disc', () => {
+    const radius = 6_000
+    const bPos = at2(8_000, 0)
+    const grid = unionGrid([ORIGIN, bPos], radius, 300)
+    const tiles = tilesFor(22_000, () => 300)
+    const jobA = job({ radiusM: radius, outCellM: 300, grid })
+    const jobB = job({ origin: bPos, radiusM: radius, outCellM: 300, grid })
+    const ra = computeCoverageInline(jobA, tiles)
+    const rb = computeCoverageInline(jobB, tiles)
+    expect(ra.geom).toEqual(grid)
+    expect(rb.geom).toEqual(grid)
+    expect(ra.data.length).toBe(rb.data.length)
+
+    const value = (r: typeof ra, ll: { lat: number; lng: number }) => sampleResult(r, ll.lat, ll.lng)
+    // A's own transmitter area is strong for A and outside B's disc
+    expect(Number.isFinite(value(ra, at2(1_000, 0)))).toBe(true)
+    expect(Number.isNaN(value(rb, at2(1_000, 0)))).toBe(true)
+    // B's neighbourhood: the reverse
+    expect(Number.isFinite(value(rb, at2(9_000, 0)))).toBe(true)
+    expect(Number.isNaN(value(ra, at2(9_000, 0)))).toBe(true)
+    // the overlap between the nodes is defined for both
+    expect(Number.isFinite(value(ra, at2(4_000, 0)))).toBe(true)
+    expect(Number.isFinite(value(rb, at2(4_000, 0)))).toBe(true)
+  })
+
+  it('only computes rows the disc can touch, and every finite pixel lies inside them', () => {
+    const radius = 6_000
+    const bPos = at2(0, 20_000)
+    const grid = unionGrid([ORIGIN, bPos], radius, 300)
+    const [first, last] = discRows(grid, ORIGIN, radius)
+    // B is 20 km north of A, so the top of the grid (B's end) is rows A never touches;
+    // A's own disc reaches the bottom edge, which is the south end of the grid.
+    expect(first).toBeGreaterThan(grid.n / 3)
+    expect(last).toBe(grid.n - 1)
+    const ra = computeCoverageInline(job({ radiusM: radius, outCellM: 300, grid }), tilesFor(30_000, () => 300))
+    let finite = 0
+    for (let row = 0; row < grid.n; row++) {
+      for (let col = 0; col < grid.n; col++) {
+        if (Number.isFinite(ra.data[row * grid.n + col])) {
+          finite++
+          expect(row).toBeGreaterThanOrEqual(first)
+          expect(row).toBeLessThanOrEqual(last)
+        }
+      }
+    }
+    // roughly the area of the disc, in pixels
+    const cell = (2 * radius) / gridGeometry(ORIGIN, radius, 300).n
+    expect(finite * cell * cell).toBeGreaterThan(Math.PI * radius * radius * 0.9)
+    expect(finite * cell * cell).toBeLessThan(Math.PI * radius * radius * 1.1)
+  })
+
+  it('gives the same values with and without an explicit grid when there is one node', () => {
+    const tiles = tilesFor(12_000, (x) => 300 + 40 * Math.sin(x / 900))
+    const a = computeCoverageInline(job(), tiles)
+    const b = computeCoverageInline(job({ grid: gridGeometry(ORIGIN, 12_000, 400) }), tiles)
+    expect(b.data).toEqual(a.data)
   })
 })

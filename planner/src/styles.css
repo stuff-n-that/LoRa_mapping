@@ -290,6 +290,107 @@ input[type='range'] {
 .btn.ghost {
   color: var(--dim);
 }
+.node-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.node-card {
+  display: flex;
+  align-items: stretch;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+}
+.node-card.selected {
+  border-color: var(--accent);
+  background: rgba(58, 160, 255, 0.12);
+  background: color-mix(in srgb, var(--accent) 12%, var(--bg));
+}
+.node-select {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  min-height: 48px;
+  background: none;
+  border: 0;
+  cursor: pointer;
+  text-align: left;
+}
+.node-badge {
+  flex: none;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: #ff5a36;
+  color: #fff;
+  font-weight: 700;
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.node-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+.node-main strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.node-sub {
+  font-size: 12px;
+  color: var(--dim);
+}
+.node-area {
+  flex: none;
+  font-size: 12px;
+  color: var(--dim);
+}
+.node-remove {
+  flex: none;
+  width: 40px;
+  background: none;
+  border: 0;
+  border-left: 1px solid var(--border);
+  color: var(--dim);
+  font-size: 18px;
+  cursor: pointer;
+}
+.node-remove:hover {
+  color: var(--text);
+}
+.node-settings > summary {
+  cursor: pointer;
+  font-weight: 600;
+  min-height: 36px;
+  display: flex;
+  align-items: center;
+  border-top: 1px solid var(--border);
+  padding-top: 8px;
+}
+.node-settings[open] > summary {
+  margin-bottom: 8px;
+}
+.node-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.placing-banner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
 .quick .btn.on {
   border-color: var(--accent);
   background: rgba(58, 160, 255, 0.16);
@@ -550,21 +651,25 @@ input[type='range'] {
   border: 1px solid rgba(255, 255, 255, 0.4);
 }
 .planned-marker {
-  width: 26px;
-  height: 26px;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.15);
-  border: 3px solid #ff5a36;
-  box-shadow: 0 0 0 2px #fff, 0 2px 6px rgba(0, 0, 0, 0.5);
-  cursor: grab;
-  position: relative;
-}
-.planned-marker::after {
-  content: '';
-  position: absolute;
-  inset: 6px;
+  width: 28px;
+  height: 28px;
   border-radius: 50%;
   background: #ff5a36;
+  color: #fff;
+  font: 700 14px/22px system-ui, sans-serif;
+  text-align: center;
+  border: 3px solid #fff;
+  box-shadow: 0 0 0 1.5px rgba(0, 0, 0, 0.45), 0 2px 6px rgba(0, 0, 0, 0.5);
+  cursor: grab;
+}
+.planned-marker.selected {
+  background: #d93a17;
+  box-shadow: 0 0 0 3px #ffd0c4, 0 0 0 4.5px rgba(0, 0, 0, 0.55), 0 3px 8px rgba(0, 0, 0, 0.55);
+  z-index: 2;
+}
+.map.placing .maplibregl-canvas-container.maplibregl-interactive,
+.map.placing .maplibregl-canvas {
+  cursor: crosshair !important;
 }
 .maplibregl-popup-content {
   color: #16161a;

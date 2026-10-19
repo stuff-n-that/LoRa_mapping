@@ -1,6 +1,6 @@
 // Orchestration: download terrain, then compute the raster across a pool of workers.
 
-import { gridGeometry, computeCoverageInline, type CoverageJob, type CoverageResult } from './coverage'
+import { computeCoverageInline, discRows, gridGeometry, type CoverageJob, type CoverageResult } from './coverage'
 import type { WorkerMessage, WorkerRequest } from './coverage.worker'
 import { chooseZoom, fetchTiles, pixelSizeM, tilesCovering } from './terrain'
 import type { LatLng } from './geo'
@@ -13,6 +13,8 @@ export interface RunOptions {
   onProgress?: (phase: Phase, fraction: number) => void
   /** Override the worker count (0 = compute on the calling thread). */
   workers?: number
+  /** Decoded terrain tiles shared between runs (see fetchTiles). */
+  tileCache?: Map<string, Float32Array | null>
 }
 
 /** Terrain settings for a detail level and range. */
@@ -45,13 +47,17 @@ export async function runCoverage(job: CoverageJob, opts: RunOptions = {}): Prom
   onProgress?.('terrain', 0)
   const tiles = await fetchTiles(job.zoom, keys, {
     signal,
+    cache: opts.tileCache,
     onProgress: (done, total) => onProgress?.('terrain', done / total),
   })
   signal?.throwIfAborted()
 
   // 2. compute
-  const geom = gridGeometry(job.origin, job.radiusM, job.outCellM)
+  const geom = job.grid ?? gridGeometry(job.origin, job.radiusM, job.outCellM)
   const n = geom.n
+  // Only the rows this node's disc can touch; the rest of a shared grid stays NaN.
+  const [firstRow, lastRow] = discRows(geom, job.origin, job.radiusM)
+  const rowCount = lastRow - firstRow + 1
   const workerCount = opts.workers ?? (typeof Worker === 'undefined' ? 0 : defaultWorkerCount())
   onProgress?.('compute', 0)
 
@@ -61,8 +67,8 @@ export async function runCoverage(job: CoverageJob, opts: RunOptions = {}): Prom
     return { ...result, elapsedMs: performance.now() - t0 }
   }
 
-  const k = Math.min(workerCount, n)
-  const data = new Float32Array(n * n)
+  const k = Math.min(workerCount, rowCount)
+  const data = new Float32Array(n * n).fill(NaN)
   const rowsDone = new Array<number>(k).fill(0)
   let missing = 0
   const tileEntries = [...tiles.entries()]
@@ -80,12 +86,12 @@ export async function runCoverage(job: CoverageJob, opts: RunOptions = {}): Prom
         const worker = new Worker(new URL('./coverage.worker.ts', import.meta.url), { type: 'module' })
         workers.push(worker)
         const rows: number[] = []
-        for (let r = w; r < n; r += k) rows.push(r) // interleaved rows balance the load
+        for (let r = firstRow + w; r <= lastRow; r += k) rows.push(r) // interleaved rows balance the load
         worker.onmessage = (ev: MessageEvent<WorkerMessage>) => {
           const m = ev.data
           if (m.type === 'progress') {
             rowsDone[w] = m.rowsDone
-            onProgress?.('compute', rowsDone.reduce((a, b) => a + b, 0) / n)
+            onProgress?.('compute', rowsDone.reduce((a, b) => a + b, 0) / rowCount)
           } else if (m.type === 'done') {
             m.rows.forEach((row, i) => data.set(m.data.subarray(i * n, (i + 1) * n), row * n))
             missing += m.missingTerrainLookups
@@ -106,4 +112,49 @@ export async function runCoverage(job: CoverageJob, opts: RunOptions = {}): Prom
 
   onProgress?.('compute', 1)
   return { job, geom, data, missingTerrainLookups: missing, elapsedMs: performance.now() - t0 }
+}
+
+export interface NetworkProgress {
+  /** Which node (0-based) is being worked on, and how many there are. */
+  index: number
+  count: number
+  phase: Phase
+  /** 0..1 across the whole run. */
+  overall: number
+}
+
+export interface NetworkRunOptions {
+  signal?: AbortSignal
+  onProgress?: (p: NetworkProgress) => void
+  workers?: number
+}
+
+/** Terrain is usually cached after the first node, so give downloading a smaller share of each node's time. */
+const TERRAIN_SHARE = 0.25
+/** Forget cached tiles beyond this many, so a plan with many far-apart nodes cannot use unbounded memory. */
+const MAX_CACHED_TILES = 400
+
+/**
+ * Compute every node in turn onto the same grid. Each node is itself spread across the worker pool,
+ * and terrain tiles shared between nodes are downloaded once.
+ */
+export async function runNetwork(jobs: CoverageJob[], opts: NetworkRunOptions = {}): Promise<CoverageResult[]> {
+  const cache = new Map<string, Float32Array | null>()
+  const results: CoverageResult[] = []
+  for (let i = 0; i < jobs.length; i++) {
+    opts.signal?.throwIfAborted()
+    if (cache.size > MAX_CACHED_TILES) cache.clear()
+    results.push(
+      await runCoverage(jobs[i], {
+        signal: opts.signal,
+        workers: opts.workers,
+        tileCache: cache,
+        onProgress: (phase, fraction) => {
+          const within = phase === 'terrain' ? TERRAIN_SHARE * fraction : TERRAIN_SHARE + (1 - TERRAIN_SHARE) * fraction
+          opts.onProgress?.({ index: i, count: jobs.length, phase, overall: (i + within) / jobs.length })
+        },
+      }),
+    )
+  }
+  return results
 }

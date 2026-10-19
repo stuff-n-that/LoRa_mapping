@@ -1,6 +1,6 @@
 # Planner — product & feature spec
 
-Status: **M0 and M1 are built** (see [`planner/`](../planner/README.md)); M2 onwards is not started. Decisions taken while building are recorded under "Decisions so far" at the end.
+Status: **M0 and M1 are built**, plus the first half of M3 (several planned nodes with combined coverage) — see [`planner/`](../planner/README.md). M2, placement help, viewshed and M4–M5 are not started. Decisions taken while building are recorded under "Decisions so far" at the end.
 
 A separate area of the site, linked from the landing page and from the main map, for **planning a LoRa mesh deployment in one place**: pick a network (MeshCore or Meshtastic, or compare both), see what already exists around you, predict coverage and links with real terrain, choose hardware, and walk away with a shopping list.
 
@@ -172,3 +172,4 @@ Recorded while building M0 and M1, so the open questions above can be closed or 
 7. **Honest defaults.** The extra-loss allowance defaults to 0 dB (bare terrain), and the results panel says so whenever it is 0. Coverage that reaches the edge of the range is flagged as clipped.
 8. **Sharing.** The whole scenario lives in the URL hash (and the planner follows hash changes), which also carries "Plan coverage from here" from the live map, including the selected countries.
 9. **Privacy wording.** Settings never leave the browser; map and terrain tiles come from public servers, which can see roughly which area is viewed. The landing page and planner say exactly that.
+10. **Several nodes (part of M3, built early).** A plan is a list of up to 10 nodes, each with its own network, radio, hardware and position; the receiving device and the calculation choices are shared. Nodes are computed onto one shared raster and combined by taking the best *margin* at each pixel (margin, not raw signal, because nodes on different networks need different sensitivities). The URL keeps the original flat format for one node (so existing links and the map's "Plan coverage from here" still work) and uses repeated compact `n=` records for several. Still to do from M3: best-server colouring, "add this node and show what changes", placement suggestions, viewshed and regulatory presets.
