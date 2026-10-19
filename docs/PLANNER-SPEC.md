@@ -1,6 +1,6 @@
 # Planner — product & feature spec
 
-Status: **draft for agreement** — nothing in this document is built yet.
+Status: **M0 and M1 are built** (see [`planner/`](../planner/README.md)); M2 onwards is not started. Decisions taken while building are recorded under "Decisions so far" at the end.
 
 A separate area of the site, linked from the landing page and from the main map, for **planning a LoRa mesh deployment in one place**: pick a network (MeshCore or Meshtastic, or compare both), see what already exists around you, predict coverage and links with real terrain, choose hardware, and walk away with a shopping list.
 
@@ -78,7 +78,7 @@ Each milestone should be usable on its own and shippable.
 ### M1 — One node, real coverage (the "wow, that was easy" milestone)
 - Drop a node on the map; pick network, device, radio preset, antenna and height from short lists with defaults. Defaults produce a sensible result without touching anything.
 - Coverage prediction using real terrain, run in the browser, with progress and cancel.
-- Heatmap and contour display; tap to read a signal level; legend; adjustable sensitivity and colour range that re-render instantly.
+- Heatmap display (smooth or banded colours — vector contours come later); tap to read a signal level; legend; adjustable sensitivity and colour range that re-render instantly.
 - Receiver sensitivity derived from the chosen radio preset rather than a single hard-coded value.
 - Permalink that reproduces the scenario.
 - A clearly visible "what this does not model" note (buildings, foliage, weather, interference unless explicitly added).
@@ -158,3 +158,17 @@ This also replaces the four placeholder cards on the landing page's hardware sec
 ## Suggested order of work
 
 M0 → M1 first, then ship and learn. M1 alone (one node, real terrain, both networks' existing nodes visible, shareable link) is already more convenient than anything that makes people hop between sites. Then M2, which is the distinctive part, then M3–M5.
+
+## Decisions so far
+
+Recorded while building M0 and M1, so the open questions above can be closed or revisited.
+
+1. **Engine source and licence — resolved.** The engine is a TypeScript port of NTIA's reference ITM (<https://github.com/NTIA/itm>), a US-government work released for any use with acknowledgement and a note of modifications (see `planner/NOTICE.md`). No SPLAT! or other GPL code is used. It is verified against NTIA's original C++ on 225 paths to about 5e-11 dB. As with any licence reading, have someone qualified confirm it before relying on it commercially.
+2. **Terrain.** AWS Terrain Tiles (Terrarium PNG) — free, keyless, cross-origin, whole world. Fetched in the browser; failures are errors, not flat ground.
+3. **Basemap — provisional.** Street vector tiles from OpenFreeMap (free, no key), Esri World Imagery for satellite (as on the live map), and a shaded-relief view built from the same terrain tiles, which is also the automatic fallback. The OpenFreeMap and Esri endpoints could not be reached from the build sandbox, so verify them on the deployed site.
+4. **Renderer.** MapLibre GL (not Leaflet), as proposed; the live map stays on Leaflet.
+5. **Cautious planning** applies 90% to both ITM's time and situation variability. Time variability alone changes the result by under 2 dB, so it would have made "cautious" almost meaningless.
+6. **Radio presets** list only what could be confirmed from public docs (Meshtastic's 250 kHz presets and MeshCore's US/Canada setting); everything else is a custom SF/bandwidth entry. Each preset records its source.
+7. **Honest defaults.** The extra-loss allowance defaults to 0 dB (bare terrain), and the results panel says so whenever it is 0. Coverage that reaches the edge of the range is flagged as clipped.
+8. **Sharing.** The whole scenario lives in the URL hash (and the planner follows hash changes), which also carries "Plan coverage from here" from the live map, including the selected countries.
+9. **Privacy wording.** Settings never leave the browser; map and terrain tiles come from public servers, which can see roughly which area is viewed. The landing page and planner say exactly that.

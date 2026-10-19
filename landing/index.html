@@ -130,6 +130,7 @@
     </a>
     <div class="nav-links">
       <a href="#features">Features</a>
+      <a href="plan/">Planner</a>
       <a href="#compare">MeshCore vs Meshtastic</a>
       <a href="#hardware">Get started</a>
       <a href="#faq">FAQ</a>
@@ -157,6 +158,7 @@
         <span class="icon-binoculars" style="width: 19px; height: 19px;" aria-hidden="true"></span>
         Open the live map →
       </a>
+      <a href="plan/" class="btn-secondary" style="font-size: 16px;">Plan coverage</a>
       <a href="#faq" class="btn-secondary" style="font-size: 16px;">How it works</a>
     </div>
 
@@ -266,6 +268,36 @@
     </div>
   </section>
 
+  <!-- Coverage planner -->
+  <section id="planner" style="display: flex; flex-direction: column; gap: 24px;">
+    <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+      <h2 style="font-size: 32px;">Plan a node: see where it would reach</h2>
+      <span class="card" style="border-radius: 999px; padding: 3px 12px; font-size: 12px; color: var(--text-dim);">Beta · free</span>
+    </div>
+    <p style="max-width: 720px; margin: 0;">
+      Pick MeshCore or Meshtastic, drop a node anywhere, and see its predicted radio coverage over real terrain, with the
+      existing nodes of both networks right there on the map. It runs entirely in your browser: no account, nothing to install,
+      and the settings you enter never leave your device. (Map and terrain tiles do come from public servers, which can see roughly which area you are viewing.)
+    </p>
+    <div class="grid-2">
+      <div class="card" style="padding: 24px; display: flex; flex-direction: column; gap: 8px;">
+        <h3 style="font-size: 17px;">Real terrain, not a circle</h3>
+        <p style="font-size: 14px; margin: 0;">Hills and valleys shape LoRa coverage far more than distance does. The planner uses the Longley-Rice (ITM) model from NTIA over public elevation data, so a ridge casts a radio shadow, just like in real life.</p>
+      </div>
+      <div class="card" style="padding: 24px; display: flex; flex-direction: column; gap: 8px;">
+        <h3 style="font-size: 17px;">Your gear, your settings</h3>
+        <p style="font-size: 14px; margin: 0;">Choose the radio preset, transmit power, antenna, cable loss and mast height, then read the predicted signal anywhere on the map. Share the result with a link.</p>
+      </div>
+    </div>
+    <p style="font-size: 13px; max-width: 720px; margin: 0;">
+      <strong style="color: var(--text);">An estimate, not a promise.</strong> The model sees terrain only: not buildings, trees, weather or interference.
+      Use it to decide where to try, then test on air. Multi-node plans and hardware guidance are on the way.
+    </p>
+    <div>
+      <a href="plan/" class="btn-primary" style="font-size: 16px;">Open the planner →</a>
+    </div>
+  </section>
+
   <!-- Getting started / hardware -->
   <section id="hardware" style="display: flex; flex-direction: column; gap: 24px;">
     <h2 style="font-size: 32px;">Get on the map: popular starter hardware</h2>
@@ -340,6 +372,10 @@
         <p>Only if it is configured to report to the same public community network this map reads from. A node run entirely offline, or pointed at a private server, will not appear.</p>
       </details>
       <details class="faq-item" name="faq">
+        <summary>How accurate is the coverage planner?<span class="chev">▾</span></summary>
+        <p>It is an estimate. The planner runs the Longley-Rice (ITM) propagation model over public terrain data, so it accounts for hills, valleys and the curve of the earth. It does not see buildings, trees, weather or interference unless you add an extra-loss allowance, so real coverage is usually smaller than the map suggests, especially for a receiver at street level. Treat it as a guide to where a node is worth trying, then test on air.</p>
+      </details>
+      <details class="faq-item" name="faq">
         <summary>What hardware do I need to get started?<span class="chev">▾</span></summary>
         <p>Any LoRa board supported by MeshCore or Meshtastic firmware — see the starter hardware section above for commonly recommended options.</p>
       </details>
@@ -355,6 +391,7 @@
     <span style="font-size: 13px; color: var(--text-dim);">LoRa Mesh Map — community data from the public MeshCore and Meshtastic networks.</span>
     <div style="display: flex; gap: 20px;">
       <a href="map/" style="text-decoration: none; font-size: 13px; color: var(--text-dim);">Open the map</a>
+      <a href="plan/" style="text-decoration: none; font-size: 13px; color: var(--text-dim);">Planner</a>
       <a href="#faq" style="text-decoration: none; font-size: 13px; color: var(--text-dim);">FAQ</a>
     </div>
   </footer>
@@ -382,6 +419,16 @@
       "name": "LoRa Mesh Map",
       "url": "https://stuff-n-that.github.io/LoRa_mapping/map/",
       "description": "Interactive map of live MeshCore and Meshtastic LoRa mesh network nodes — switchable street, satellite and terrain layers, per-country data loading, and filtering by device role.",
+      "applicationCategory": "UtilitiesApplication",
+      "operatingSystem": "Any (web browser)",
+      "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+      "isAccessibleForFree": true
+    },
+    {
+      "@type": "WebApplication",
+      "name": "LoRa Planner",
+      "url": "https://stuff-n-that.github.io/LoRa_mapping/plan/",
+      "description": "Free, in-browser coverage planner for MeshCore and Meshtastic nodes: predicts radio coverage over real terrain using the Longley-Rice (ITM) model, alongside the existing nodes of both networks.",
       "applicationCategory": "UtilitiesApplication",
       "operatingSystem": "Any (web browser)",
       "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
@@ -424,6 +471,11 @@
       "@type": "Question",
       "name": "Will my node show up here automatically?",
       "acceptedAnswer": { "@type": "Answer", "text": "Only if it is configured to report to the same public community network this map reads from. A node run entirely offline, or pointed at a private server, will not appear." }
+    },
+    {
+      "@type": "Question",
+      "name": "How accurate is the coverage planner?",
+      "acceptedAnswer": { "@type": "Answer", "text": "It is an estimate. The planner runs the Longley-Rice (ITM) propagation model over public terrain data, so it accounts for hills, valleys and the curve of the earth. It does not see buildings, trees, weather or interference unless you add an extra-loss allowance, so real coverage is usually smaller than the map suggests. Treat it as a guide to where a node is worth trying, then test on air." }
     },
     {
       "@type": "Question",

@@ -7,12 +7,14 @@ import NodeTypeFilter from './components/NodeTypeFilter'
 import MeasurePanel from './components/MeasurePanel'
 import { ROLE_CATEGORIES } from './utils/nodeRoles'
 import { loadNodes, persistNodes } from './utils/nodeStore'
+import { plannerUrl } from './utils/plannerLink'
 import './App.css'
 
 export default function App() {
   const [nodes, setNodes] = useState(() => loadNodes())
   const [snapshotNodes, setSnapshotNodes] = useState([])
   const [selectedRegionCount, setSelectedRegionCount] = useState(0)
+  const [selectedRegionCodes, setSelectedRegionCodes] = useState([])
   const [enabledRoleCategories, setEnabledRoleCategories] = useState(
     () => new Set(ROLE_CATEGORIES.map((c) => c.key)),
   )
@@ -54,6 +56,7 @@ export default function App() {
         <Toolbar
           nodeCount={visibleNodes.length}
           selectedRegionCount={selectedRegionCount}
+          plannerHref={plannerUrl({ regions: selectedRegionCodes })}
           menuOpen={mobileMenuOpen}
           onToggleMenu={() => setMobileMenuOpen((open) => !open)}
         />
@@ -66,7 +69,11 @@ export default function App() {
             onToggleMeshcore={setShowMeshcore}
             onToggleMeshtastic={setShowMeshtastic}
           />
-          <RegionPicker onNodesLoaded={handleRegionLoaded} onSelectionCountChange={setSelectedRegionCount} />
+          <RegionPicker
+            onNodesLoaded={handleRegionLoaded}
+            onSelectionCountChange={setSelectedRegionCount}
+            onSelectedCodesChange={setSelectedRegionCodes}
+          />
           <NodeTypeFilter enabledCategories={enabledRoleCategories} onChange={setEnabledRoleCategories} />
         </div>
         {/* Outside .panels-drawer on purpose: the drawer is hidden behind
@@ -84,6 +91,7 @@ export default function App() {
         showMeshtastic={showMeshtastic}
         measureMode={measureMode}
         onMeasureChange={setMeasureInfo}
+        plannerRegions={selectedRegionCodes}
       />
     </div>
   )

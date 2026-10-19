@@ -1,4 +1,4 @@
-export default function Toolbar({ nodeCount, selectedRegionCount, menuOpen, onToggleMenu }) {
+export default function Toolbar({ nodeCount, selectedRegionCount, plannerHref, menuOpen, onToggleMenu }) {
   return (
     <div className="toolbar">
       <div className="toolbar-title">
@@ -7,6 +7,12 @@ export default function Toolbar({ nodeCount, selectedRegionCount, menuOpen, onTo
           {nodeCount} nodes
           {selectedRegionCount > 0 && ` · ${selectedRegionCount} region${selectedRegionCount === 1 ? '' : 's'} selected`}
         </span>
+        {/* The coverage planner is a separate app published next to this one. */}
+        {plannerHref && (
+          <a className="toolbar-link" href={plannerHref}>
+            Plan coverage
+          </a>
+        )}
         {/* Hidden above the mobile breakpoint (see App.css) — on desktop
             the panel stack below is always visible, so there's nothing
             for this button to do there. */}
