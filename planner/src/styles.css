@@ -290,6 +290,12 @@ input[type='range'] {
 .btn.ghost {
   color: var(--dim);
 }
+.quick .btn.on {
+  border-color: var(--accent);
+  background: rgba(58, 160, 255, 0.16);
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+  font-weight: 700;
+}
 .btn.primary {
   background: var(--accent);
   color: var(--on-accent);
