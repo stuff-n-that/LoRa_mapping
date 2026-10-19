@@ -1,0 +1,30 @@
+name: Planner CI
+
+# Checks the coverage planner on pull requests that touch it (the deploy
+# workflow runs the same steps on main).
+on:
+  pull_request:
+    paths:
+      - 'planner/**'
+      - '.github/workflows/planner-ci.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  planner:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: planner
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: planner/package-lock.json
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build

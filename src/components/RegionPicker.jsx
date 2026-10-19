@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import CollapsibleSection from './CollapsibleSection'
 
-export default function RegionPicker({ onNodesLoaded, onSelectionCountChange }) {
+export default function RegionPicker({ onNodesLoaded, onSelectionCountChange, onSelectedCodesChange }) {
   const [regions, setRegions] = useState([])
   const [indexStatus, setIndexStatus] = useState('loading') // loading | ready | missing
   const [search, setSearch] = useState('')
@@ -35,6 +35,7 @@ export default function RegionPicker({ onNodesLoaded, onSelectionCountChange }) 
   // regions selected" without needing to recount a nodes array itself.
   useEffect(() => {
     onSelectionCountChange?.(selectedCodes.length)
+    onSelectedCodesChange?.(selectedCodes)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedCodes])
 

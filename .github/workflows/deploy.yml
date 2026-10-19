@@ -26,17 +26,31 @@ jobs:
         with:
           node-version: 20
           cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            planner/package-lock.json
       - run: npm ci
       - name: Fetch live node data, sharded by country
         run: node scripts/pull-live-nodes.mjs public/regions
         continue-on-error: true # ship the deploy even if both upstream APIs are briefly down
       - run: npm run build
-      - name: Assemble site (landing page at root, map app under /map/)
+      - name: Planner — install, check, test, build
+        # The tests compare the propagation engine against NTIA's reference
+        # values, so a broken engine stops the deploy instead of shipping.
+        working-directory: planner
+        run: |
+          npm ci
+          npm run typecheck
+          npm test
+          npm run build
+      - name: Assemble site (landing page at root, map app under /map/, planner under /plan/)
         run: |
           mkdir -p site
           cp -r landing/. site/
           mkdir -p site/map
           cp -r dist/. site/map/
+          mkdir -p site/plan
+          cp -r planner/dist/. site/plan/
       - uses: actions/upload-pages-artifact@v3
         with:
           path: site

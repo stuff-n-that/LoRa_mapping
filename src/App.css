@@ -39,6 +39,30 @@
   font-size: 15px;
 }
 
+.toolbar-link {
+  margin-left: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #3aa0ff;
+  text-decoration: none;
+  border: 1px solid rgba(58, 160, 255, 0.5);
+  border-radius: 6px;
+  padding: 3px 8px;
+  white-space: nowrap;
+}
+
+.toolbar-link:hover {
+  background: rgba(58, 160, 255, 0.15);
+}
+
+.popup-plan-link {
+  display: inline-block;
+  margin-top: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #0b6fcf;
+}
+
 .toolbar-count {
   font-weight: 400;
   font-size: 12px;

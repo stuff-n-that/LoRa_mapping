@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <style>
+    .ring { fill: none; stroke: #16161a; }
+    .point { fill: #16161a; }
+    .north { fill: #0b6fcf; }
+    .hub { fill: #ffffff; stroke: #16161a; }
+    @media (prefers-color-scheme: dark) {
+      .ring { stroke: #f2f2f2; }
+      .point { fill: #f2f2f2; }
+      .north { fill: #3aa0ff; }
+      .hub { fill: #0b0b0d; stroke: #f2f2f2; }
+    }
+  </style>
+  <circle class="ring" cx="16" cy="16" r="14" stroke-width="1" opacity="0.4"/>
+  <circle class="ring" cx="16" cy="16" r="10.5" stroke-width="0.75" opacity="0.3"/>
+  <polygon class="north" points="16,16 14.85,13.23 16,3 17.15,13.23"/>
+  <polygon class="point" points="16,16 17.15,13.23 21.66,10.34 18.77,14.85" opacity="0.6"/>
+  <polygon class="point" points="16,16 18.77,14.85 29,16 18.77,17.15" opacity="0.6"/>
+  <polygon class="point" points="16,16 18.77,17.15 21.66,21.66 17.15,18.77" opacity="0.6"/>
+  <polygon class="point" points="16,16 17.15,18.77 16,29 14.85,18.77" opacity="0.6"/>
+  <polygon class="point" points="16,16 14.85,18.77 10.34,21.66 13.23,17.15" opacity="0.6"/>
+  <polygon class="point" points="16,16 13.23,17.15 3,16 13.23,14.85" opacity="0.6"/>
+  <polygon class="point" points="16,16 13.23,14.85 10.34,10.34 14.85,13.23" opacity="0.6"/>
+  <circle class="hub" cx="16" cy="16" r="2" stroke-width="1"/>
+</svg>

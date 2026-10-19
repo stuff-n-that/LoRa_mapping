@@ -4,13 +4,18 @@ A mobile- and desktop-friendly web map for plotting **MeshCore** and **Meshtasti
 
 ## Site structure
 
-The deployed site has two parts, assembled together by the deploy workflow:
+The deployed site has three parts, assembled together by the deploy workflow:
 
 - **`landing/`** — a static, framework-free landing page (`index.html` + `favicon.svg`) served at the site root. No build step: it's plain HTML/CSS with a tiny vanilla-JS progressive enhancement (live node/country counts) and `WebSite`/`WebApplication`/`FAQPage` JSON-LD for search/AI answer-engine visibility. Kept deliberately separate from the React app so it's fully crawlable without JS execution.
 - **The React map app** (everything else in `src/`) — served under `/map/`.
+- **The coverage planner** (`planner/`, its own Vite project) — served under `/plan/`. It reads the map's per-country node data from `/map/regions/`.
 - **Crawler/discovery files**, also in `landing/` so they land at the site root: `robots.txt` (allows all crawlers, including AI ones — no reason to block any given the SEO/AEO goal), `sitemap.xml` (the two real URLs: the landing page and `/map/`), and `llms.txt` (the [llmstxt.org](https://llmstxt.org) convention — a concise plain-markdown summary of the site for AI crawlers that don't want to parse full HTML/JS). All three use hardcoded absolute URLs (`https://stuff-n-that.github.io/LoRa_mapping/...`); update them if the site ever moves domains.
 
 Locally, `npm run dev` only serves the React app (at `/`, not `/map/`) — the landing page isn't part of the Vite project and has no dev server of its own; open `landing/index.html` directly, or preview the real assembled layout per [Deployment](#deployment) below.
+
+## Coverage planner
+
+A separate app in [`planner/`](planner/README.md), published at `/plan/`: place a MeshCore or Meshtastic node and see its predicted radio coverage over real terrain (Longley-Rice / ITM, computed in the browser). Linked from the landing page, and from the map's toolbar and node popups ("Plan coverage from here"), which carry the selected countries across. Spec and roadmap: [`docs/PLANNER-SPEC.md`](docs/PLANNER-SPEC.md).
 
 ## Features
 
@@ -37,7 +42,7 @@ npm run preview   # preview the production build
 
 A GitHub Actions workflow (`.github/workflows/deploy.yml`) builds and deploys to GitHub Pages on every push to `main`. In the repo settings, set **Pages → Source** to **GitHub Actions**.
 
-The workflow builds the React app (`npm run build` → `dist/`, with `vite.config.js`'s `base` set to `/LoRa_mapping/map/`) and assembles a combined `site/` directory before uploading it as the Pages artifact: `landing/`'s contents at `site/`'s root, and `dist/`'s contents under `site/map/`. So the deployed layout is `/LoRa_mapping/` → landing page, `/LoRa_mapping/map/` → the map app. To preview that exact layout locally: `npm run build && mkdir -p site/map && cp -r landing/. site/ && cp -r dist/. site/map/`, then serve `site/` with any static file server.
+The workflow builds the React app (`npm run build` → `dist/`, with `vite.config.js`'s `base` set to `/LoRa_mapping/map/`), then checks, tests and builds the planner (`planner/`, base `/LoRa_mapping/plan/`; a failing engine test stops the deploy), and assembles a combined `site/` directory before uploading it as the Pages artifact: `landing/`'s contents at `site/`'s root, `dist/`'s contents under `site/map/` and `planner/dist/`'s under `site/plan/`. So the deployed layout is `/LoRa_mapping/` → landing page, `/LoRa_mapping/map/` → the map app, `/LoRa_mapping/plan/` → the planner. To preview that exact layout locally: `npm run build && mkdir -p site/map && cp -r landing/. site/ && cp -r dist/. site/map/`, then serve `site/` with any static file server.
 
 ## Data model
 
