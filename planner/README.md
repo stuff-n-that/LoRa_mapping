@@ -7,8 +7,9 @@ Spec and roadmap: [`docs/PLANNER-SPEC.md`](../docs/PLANNER-SPEC.md). This folder
 ## What it does today
 
 - Existing MeshCore and Meshtastic nodes by country (the same snapshots the map uses), with the network toggle and role filter.
-- One planned node: location (click, drag, type, or "use my location"), network, radio preset or custom SF/bandwidth, band, transmit power, antenna gain, cable loss, mast height, and a receiving device (height, gain, extra loss allowance, sensitivity).
+- **A network of up to 10 planned nodes.** Add nodes by clicking the map ("+ Add node", Esc cancels), from your location, or from an existing node's popup; numbered pins can be dragged, and clicking a pin or a card selects it. Each node has its own name, location, network (so MeshCore and Meshtastic can be mixed), radio preset or custom SF/bandwidth, band, transmit power, antenna gain, cable loss and mast height. A new node starts with the selected node's settings. The receiving device (height, gain, extra loss allowance, sensitivity) and the range/detail/reliability/climate/ground choices are shared by every node.
 - Coverage over real terrain out to 5–50 km at three detail levels, typical or cautious planning, in seconds.
+- **Combined coverage.** The map shows, at every point, the strongest margin of any node (each node judged against its own network's sensitivity). "Show" switches to a single node, each node's own area appears on its card, and the readout when you click the map lists what every node predicts there, best first.
 - Heatmap (smooth or banded) with legend, adjustable opacity and minimum margin — these re-render instantly without recalculating.
 - Click the map to read the predicted signal at any point; click the readout to dismiss it, or click elsewhere to read another spot.
 - A **Topo** basemap (elevation tint, hillshade, contour lines with elevation labels) drawn in the browser from the same terrain tiles, so it needs no extra service and doubles as the fallback when the street map can't be loaded. It has no road or place names; use Streets for those.
@@ -34,6 +35,7 @@ The planner reads node data from `../map/regions/` (published by the map's deplo
 3. **Profiles and loss.** For every pixel of the output raster, a terrain profile from the node is read from that grid and passed to the Longley-Rice / ITM point-to-point model (`src/engine/itm.ts`), giving the basic transmission loss.
 4. **Link budget.** Received power = EIRP + receive gain − cable losses − extra loss allowance − path loss. The map shows *margin*: received power minus the receiver's sensitivity (from the radio preset, or entered).
 5. **Parallelism.** Rows are split across Web Workers (interleaved for load balance); each builds its own copy of the grid, so no shared memory or special server headers are needed.
+6. **Several nodes.** Every node is computed onto one shared raster that covers all their discs (so results line up pixel for pixel), one node after another, each spread across the worker pool; each node only computes the rows its own disc touches, and terrain tiles shared between nodes are downloaded once. Results are kept per node as received power, so changing sensitivity, the view or the colours re-renders without recalculating. When nodes are far apart the pixels get coarser (the raster is capped at 1024 × 1024), and plans spanning more than about 500 km are refused.
 
 A 20 km run at normal detail takes about a second on a laptop; 50 km at fine detail about ten.
 
@@ -78,4 +80,4 @@ test/          unit tests; fixtures/itm-golden.json; itm-reference/ (generator f
 - The street basemap (OpenFreeMap) could not be reached from the sandbox this was built in, so it was only verified to fail over cleanly to the Topo map; check it on the deployed site. Node-count labels on clusters use its font server too.
 - Satellite imagery (Esri) likewise needs a check on the deployed site.
 - Radio presets: Meshtastic's LongFast and the other 250 kHz presets and MeshCore's US/Canada setting are confirmed from public docs; LongModerate/LongSlow were not confirmed, so use custom SF/bandwidth for those. MeshCore has no official source for its presets; the UI says so.
-- No vector contours yet (banded colours instead), no multi-node plans, and no hardware catalogue — see the spec's M2–M5.
+- No vector contours yet (banded colours instead), no relay-chain or link analysis between your nodes, no "where should the next node go?" help, and no hardware catalogue — see the spec's M2–M5. Changing any setting recalculates every node, since they share one raster.

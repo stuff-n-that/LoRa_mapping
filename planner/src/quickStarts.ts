@@ -1,11 +1,11 @@
-import type { Settings } from './settings'
+import type { PlannedNode } from './settings'
 
 export interface QuickStart {
   id: string
   label: string
   hint: string
   /** The four values it fills in: mast height, transmit power, antenna gain, cable loss. */
-  patch: Pick<Settings, 'hTxM' | 'txPowerDbm' | 'txGainDbi' | 'txCableLossDb'>
+  patch: Pick<PlannedNode, 'hTxM' | 'txPowerDbm' | 'txGainDbi' | 'txCableLossDb'>
 }
 
 /** Typical set-ups. Illustrative starting points, not measurements of any product. */
@@ -16,11 +16,11 @@ export const QUICK_STARTS: QuickStart[] = [
 ]
 
 /**
- * The quick start whose four values are all currently set, or null. Derived from the
- * settings rather than remembered, so it clears itself as soon as any of the four is edited
+ * The quick start whose four values are all currently set on a node, or null. Derived from the
+ * node rather than remembered, so it clears itself as soon as any of the four is edited
  * and is right again when a shared link is opened.
  */
-export function activeQuickStart(s: Settings): QuickStart | null {
+export function activeQuickStart(s: PlannedNode): QuickStart | null {
   const same = (a: number, b: number) => Math.abs(a - b) < 1e-9
   return (
     QUICK_STARTS.find(

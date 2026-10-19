@@ -20,17 +20,29 @@ interface Props {
   basemap: BasemapId
   onBasemapUnavailable: () => void
   nodes: ExistingNode[]
-  planned: LatLng | null
+  /** The planned nodes, drawn as numbered pins. */
+  planned: PlannedPin[]
+  selectedId: string | null
+  onSelectNode: (id: string) => void
+  onMoveNode: (id: string, ll: LatLng) => void
+  /** True while the next click should add a node (it always does when there are none yet). */
+  placing: boolean
   onPlace: (ll: LatLng) => void
-  onMovePlanned: (ll: LatLng) => void
   overlay: Overlay | null
   overlayOpacity: number
-  /** Text for the "what is the signal here" popup, or null for nothing to show. */
-  inspect: (ll: LatLng) => string | null
+  /** Lines for the "what is the signal here" popup, or null for nothing to show. */
+  inspect: (ll: LatLng) => string[] | null
   onPlanHere: (ll: LatLng) => void
   target: MapViewTarget | null
   /** Changes when the surrounding layout changes size. */
   layoutKey: string
+}
+
+export interface PlannedPin {
+  id: string
+  position: LatLng
+  /** The number drawn on the pin. */
+  label: number
 }
 
 const COLOR = { meshcore: '#3aa0ff', meshtastic: '#5fd88f' }
@@ -57,7 +69,7 @@ function text(tag: string, content: string, style?: Partial<CSSStyleDeclaration>
 export default function MapView(props: Props) {
   const container = useRef<HTMLDivElement>(null)
   const mapRef = useRef<MlMap | null>(null)
-  const markerRef = useRef<maplibregl.Marker | null>(null)
+  const markersRef = useRef<Map<string, maplibregl.Marker>>(new Map())
   const signalPopup = useRef<maplibregl.Popup | null>(null)
   const styleReady = useRef(false)
   const latest = useRef(props)
@@ -141,8 +153,8 @@ export default function MapView(props: Props) {
     const map = new maplibregl.Map({
       container: container.current as HTMLDivElement,
       style: styleFor(p.basemap),
-      center: p.planned ? [p.planned.lng, p.planned.lat] : [10, 30],
-      zoom: p.planned ? 11 : 2.2,
+      center: p.planned[0] ? [p.planned[0].position.lng, p.planned[0].position.lat] : [10, 30],
+      zoom: p.planned[0] ? 11 : 2.2,
       attributionControl: false,
       dragRotate: false,
       pitchWithRotate: false,
@@ -211,21 +223,22 @@ export default function MapView(props: Props) {
     map.on('click', (e) => {
       if (map.queryRenderedFeatures(e.point, { layers: ['node-clusters', 'node-points'].filter((l) => map.getLayer(l)) }).length) return
       const ll = { lat: e.lngLat.lat, lng: e.lngLat.lng }
-      if (!latest.current.planned) {
+      if (latest.current.planned.length === 0 || latest.current.placing) {
         latest.current.onPlace(ll)
         return
       }
       signalPopup.current?.remove() // only ever one readout on screen
       signalPopup.current = null
-      const message = latest.current.inspect(ll)
-      if (!message) return
+      const lines = latest.current.inspect(ll)
+      if (!lines || lines.length === 0) return
+      const message = lines.join('. ')
       // Clicking the readout itself dismisses it; clicking elsewhere on the map reads that spot instead.
       const box = document.createElement('div')
       box.className = 'signal-readout'
       box.setAttribute('role', 'button')
       box.tabIndex = 0
       box.setAttribute('aria-label', `${message}. Activate to dismiss.`)
-      box.appendChild(text('div', message))
+      lines.forEach((line, i) => box.appendChild(text('div', line, i === 0 ? undefined : { fontSize: '12px', opacity: '0.8' })))
       box.appendChild(text('div', 'Click to dismiss', { fontSize: '11px', opacity: '0.6', marginTop: '2px' }))
       const popup: maplibregl.Popup = new maplibregl.Popup({ closeButton: false, offset: 8 }).setLngLat(e.lngLat).setDOMContent(box).addTo(map)
       const dismiss = () => popup.remove()
@@ -243,7 +256,8 @@ export default function MapView(props: Props) {
     })
 
     return () => {
-      markerRef.current?.remove()
+      markersRef.current.forEach((m) => m.remove())
+      markersRef.current.clear()
       map.remove()
       mapRef.current = null
       styleReady.current = false
@@ -281,30 +295,45 @@ export default function MapView(props: Props) {
     if (styleReady.current && map?.getLayer('coverage')) map.setPaintProperty('coverage', 'raster-opacity', props.overlayOpacity)
   }, [props.overlayOpacity])
 
-  // ---- the planned node ----------------------------------------------------------------------
+  // ---- the planned nodes: one numbered, draggable pin each -----------------------------------
   useEffect(() => {
     const map = mapRef.current
     if (!map) return
-    if (!props.planned) {
-      markerRef.current?.remove()
-      markerRef.current = null
-      return
+    const pins = markersRef.current
+    const wanted = new Set(props.planned.map((p) => p.id))
+    pins.forEach((marker, id) => {
+      if (!wanted.has(id)) {
+        marker.remove()
+        pins.delete(id)
+      }
+    })
+    for (const pin of props.planned) {
+      let marker = pins.get(pin.id)
+      if (!marker) {
+        const el = document.createElement('div')
+        el.className = 'planned-marker'
+        el.setAttribute('role', 'button')
+        el.addEventListener('click', (ev) => {
+          ev.stopPropagation() // selecting a pin must not also read the signal under it
+          latest.current.onSelectNode(pin.id)
+        })
+        const created = new maplibregl.Marker({ element: el, draggable: true }).setLngLat([pin.position.lng, pin.position.lat]).addTo(map)
+        created.on('dragstart', () => latest.current.onSelectNode(pin.id))
+        created.on('dragend', () => {
+          const ll = created.getLngLat()
+          latest.current.onMoveNode(pin.id, { lat: ll.lat, lng: ll.lng })
+        })
+        pins.set(pin.id, created)
+        marker = created
+      } else {
+        marker.setLngLat([pin.position.lng, pin.position.lat])
+      }
+      const el = marker.getElement()
+      el.textContent = String(pin.label)
+      el.classList.toggle('selected', pin.id === props.selectedId)
+      el.setAttribute('aria-label', `Node ${pin.label}${pin.id === props.selectedId ? ' (selected)' : ''}. Drag to move.`)
     }
-    if (!markerRef.current) {
-      const el = document.createElement('div')
-      el.className = 'planned-marker'
-      el.setAttribute('role', 'img')
-      el.setAttribute('aria-label', 'Planned node (drag to move)')
-      const marker = new maplibregl.Marker({ element: el, draggable: true }).setLngLat([props.planned.lng, props.planned.lat]).addTo(map)
-      marker.on('dragend', () => {
-        const ll = marker.getLngLat()
-        latest.current.onMovePlanned({ lat: ll.lat, lng: ll.lng })
-      })
-      markerRef.current = marker
-    } else {
-      markerRef.current.setLngLat([props.planned.lng, props.planned.lat])
-    }
-  }, [props.planned])
+  }, [props.planned, props.selectedId])
 
   // ---- moving the view ------------------------------------------------------------------------
   useEffect(() => {
@@ -321,7 +350,7 @@ export default function MapView(props: Props) {
 
   return (
     <div className="map-wrap">
-      <div ref={container} className="map" aria-label={`Map (${BASEMAPS.find((b) => b.id === props.basemap)?.label})`} />
+      <div ref={container} className={`map${props.placing ? ' placing' : ''}`} aria-label={`Map (${BASEMAPS.find((b) => b.id === props.basemap)?.label})`} />
     </div>
   )
 }

@@ -1,27 +1,42 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { BASEMAPS, type BasemapId } from './basemaps'
 import ExistingNetworks from './components/ExistingNetworks'
-import MapView, { type MapViewTarget } from './components/MapView'
-import NodeForm from './components/NodeForm'
+import MapView, { type MapViewTarget, type PlannedPin } from './components/MapView'
+import NodeList from './components/NodeList'
 import ResultPanel, { Legend, type DisplayOptions, type RunStatus } from './components/ResultPanel'
-import { sampleResult, type CoverageResult } from './engine/coverage'
-import { haversineM, type LatLng } from './engine/geo'
-import { runCoverage } from './engine/run'
+import type { LatLng } from './engine/geo'
+import { runNetwork } from './engine/run'
 import { useExistingNodes, useOverlay } from './hooks'
+import { combineMargins, readingsAt, summarizeMargins, type NetworkResult } from './network'
 import { ROLE_CATEGORIES } from './nodes'
-import { DEFAULTS, effectiveSensitivityDbm, jobKey, parseSettings, toHash, toJob, type Settings } from './settings'
+import {
+  DEFAULTS,
+  MAX_NODES,
+  effectiveSensitivityDbm,
+  jobKey,
+  newNode,
+  parseSettings,
+  planKey,
+  toHash,
+  toJobs,
+  type PlannedNode,
+  type Settings,
+} from './settings'
 
 const fmtKm = (m: number) => (m < 1000 ? `${Math.round(m)} m` : `${(m / 1000).toFixed(1)} km`)
+const signed = (n: number) => `${n >= 0 ? '+' : ''}${n.toFixed(0)}`
 
 export default function App() {
   const [settings, setSettings] = useState<Settings>(() => parseSettings(window.location.hash))
+  const [selectedId, setSelectedId] = useState<string | null>(null)
+  const [placing, setPlacing] = useState(false)
   const [basemap, setBasemap] = useState<BasemapId>('streets')
   const [basemapNotice, setBasemapNotice] = useState<string | null>(null)
   const [show, setShow] = useState({ meshcore: true, meshtastic: true })
   const [roles, setRoles] = useState(() => new Set(ROLE_CATEGORIES.map((c) => c.key)))
   const [run, setRun] = useState<RunStatus>({ status: 'idle' })
-  const [result, setResult] = useState<CoverageResult | null>(null)
-  const [display, setDisplay] = useState<DisplayOptions>({ opacity: 0.7, minMargin: 0, mode: 'smooth' })
+  const [network, setNetwork] = useState<NetworkResult | null>(null)
+  const [display, setDisplay] = useState<DisplayOptions>({ opacity: 0.7, minMargin: 0, mode: 'smooth', view: 'all' })
   const [panelOpen, setPanelOpen] = useState(true)
   const [target, setTarget] = useState<MapViewTarget | null>(null)
   const [shareState, setShareState] = useState<'idle' | 'copied' | 'failed'>('idle')
@@ -32,6 +47,13 @@ export default function App() {
   const fitted = useRef(false)
 
   const patch = useCallback((p: Partial<Settings>) => setSettings((s) => ({ ...s, ...p })), [])
+  const patchNode = useCallback(
+    (id: string, p: Partial<PlannedNode>) => setSettings((s) => ({ ...s, nodes: s.nodes.map((n) => (n.id === id ? { ...n, ...p } : n)) })),
+    [],
+  )
+
+  // The selected node, falling back to the first if it was removed (or none was chosen yet).
+  const selected = settings.nodes.find((n) => n.id === selectedId) ?? settings.nodes[0] ?? null
 
   // ---- URL hash: the whole scenario is shareable -------------------------------------------
   // Pasting a shared link into a tab that already has the planner open only changes the hash,
@@ -44,7 +66,9 @@ export default function App() {
       if (incoming === toHash(settingsRef.current)) return
       const next = parseSettings(incoming)
       setSettings(next)
-      if (next.node) setTarget({ id: ++targetId.current, center: next.node, zoom: 11 })
+      setSelectedId(null)
+      setPlacing(false)
+      if (next.nodes[0]) setTarget({ id: ++targetId.current, center: next.nodes[0].position, zoom: 11 })
     }
     window.addEventListener('hashchange', onHashChange)
     return () => window.removeEventListener('hashchange', onHashChange)
@@ -60,14 +84,14 @@ export default function App() {
 
   // ---- existing nodes ---------------------------------------------------------------------------
   const existing = useExistingNodes(settings.regions)
-  const shownNodes = useMemo(
+  const shownExisting = useMemo(
     () => existing.nodes.filter((n) => show[n.network] && roles.has(n.roleCategory)),
     [existing.nodes, show, roles],
   )
 
   // Frame the first batch of loaded nodes unless a node (and so a view) was already chosen.
   useEffect(() => {
-    if (fitted.current || settings.node || existing.nodes.length === 0) return
+    if (fitted.current || settings.nodes.length > 0 || existing.nodes.length === 0) return
     fitted.current = true
     let [w, s, e, n] = [180, 90, -180, -90]
     for (const nd of existing.nodes) {
@@ -77,40 +101,114 @@ export default function App() {
       n = Math.max(n, nd.lat)
     }
     setTarget({ id: ++targetId.current, bounds: [[w, s], [e, n]] })
-  }, [existing.nodes, settings.node])
+  }, [existing.nodes, settings.nodes.length])
+
+  // ---- adding, selecting and removing nodes -----------------------------------------------------
+  const addNode = useCallback((position: LatLng, opts: { fly?: boolean } = {}) => {
+    const current = settingsRef.current
+    if (current.nodes.length >= MAX_NODES) return
+    const template = current.nodes.find((n) => n.id === selectedId) ?? current.nodes[current.nodes.length - 1]
+    const node = newNode(current.nodes, position, template)
+    setSettings((s) => (s.nodes.length >= MAX_NODES ? s : { ...s, nodes: [...s.nodes, node] }))
+    setSelectedId(node.id)
+    setPlacing(false)
+    if (opts.fly || current.nodes.length === 0) setTarget({ id: ++targetId.current, center: position, zoom: 11 })
+  }, [selectedId])
+
+  const removeNode = useCallback((id: string) => {
+    // Ids are reused, so once nothing is left drop the old result rather than let a new "Node 1" inherit it.
+    if (settingsRef.current.nodes.every((n) => n.id === id)) setNetwork(null)
+    setSettings((s) => ({ ...s, nodes: s.nodes.filter((n) => n.id !== id) }))
+    setSelectedId((cur) => (cur === id ? null : cur))
+  }, [])
+
+  // Esc cancels "click the map to place the next node".
+  useEffect(() => {
+    if (!placing) return
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setPlacing(false)
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [placing])
+
+  const useMyLocation = useCallback(() => {
+    setLocationError(null)
+    if (!navigator.geolocation) {
+      setLocationError("Your browser can't share its location here.")
+      return
+    }
+    setLocating(true)
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setLocating(false)
+        addNode({ lat: pos.coords.latitude, lng: pos.coords.longitude }, { fly: true })
+      },
+      (err) => {
+        setLocating(false)
+        setLocationError(err.code === err.PERMISSION_DENIED ? 'Location permission was declined.' : "Couldn't get your location.")
+      },
+      { enableHighAccuracy: false, timeout: 10_000 },
+    )
+  }, [addNode])
 
   // ---- coverage -----------------------------------------------------------------------------------
-  const sensitivity = effectiveSensitivityDbm(settings)
-  const overlay = useOverlay(result, sensitivity, display.minMargin, display.mode)
-
-  const currentKey = useMemo(() => {
-    try {
-      return jobKey(toJob(settings))
-    } catch {
-      return null
-    }
+  const sensitivity = useMemo(() => {
+    const out: Record<string, number> = {}
+    for (const n of settings.nodes) out[n.id] = effectiveSensitivityDbm(n, settings)
+    return out
   }, [settings])
-  const stale = !!result && currentKey !== jobKey(result.job)
+
+  // Results for nodes still in the plan, narrowed to one node if the user chose that view.
+  const view = display.view !== 'all' && settings.nodes.some((n) => n.id === display.view) ? display.view : 'all'
+  const shown = useMemo(
+    () => (network ? network.nodes.filter((n) => settings.nodes.some((x) => x.id === n.id) && (view === 'all' || n.id === view)) : []),
+    [network, settings.nodes, view],
+  )
+  const geom = network?.nodes[0]?.result.geom ?? null
+  const margins = useMemo(
+    () => (geom && shown.length ? combineMargins(shown.map((n) => ({ data: n.result.data, sensitivityDbm: sensitivity[n.id] })), geom.n * geom.n) : null),
+    [geom, shown, sensitivity],
+  )
+  const overlay = useOverlay(geom, margins, display.minMargin, display.mode)
+
+  // Each node's own coverage area, shown on its card.
+  const areas = useMemo(() => {
+    const out: Record<string, number | undefined> = {}
+    if (!network) return out
+    for (const n of network.nodes) {
+      if (!settings.nodes.some((x) => x.id === n.id)) continue
+      const m = combineMargins([{ data: n.result.data, sensitivityDbm: sensitivity[n.id] }], n.result.geom.n ** 2)
+      out[n.id] = summarizeMargins(m, n.result.geom, display.minMargin).areaKm2
+    }
+    return out
+  }, [network, settings.nodes, sensitivity, display.minMargin])
+
+  const currentKey = useMemo(() => planKey(settings), [settings])
+  const stale = !!network && currentKey !== network.nodes.map((n) => `${n.id}:${n.key}`).join('|')
 
   const calculate = useCallback(async () => {
-    let job
+    let jobs
     try {
-      job = toJob(settings)
+      jobs = toJobs(settings)
     } catch (err) {
       setRun({ status: 'error', message: err instanceof Error ? err.message : String(err) })
       return
     }
+    const nodes = settings.nodes
     abortRef.current?.abort()
     const ac = new AbortController()
     abortRef.current = ac
-    setRun({ status: 'running', phase: 'terrain', fraction: 0 })
+    setRun({ status: 'running', phase: 'terrain', fraction: 0, node: 1, count: jobs.length })
+    const t0 = performance.now()
     try {
-      const r = await runCoverage(job, {
+      const results = await runNetwork(jobs, {
         signal: ac.signal,
-        onProgress: (phase, fraction) => setRun({ status: 'running', phase, fraction }),
+        onProgress: (p) => setRun({ status: 'running', phase: p.phase, fraction: p.overall, node: p.index + 1, count: p.count }),
       })
       if (ac.signal.aborted) return
-      setResult(r)
+      setNetwork({
+        nodes: nodes.map((n, i) => ({ id: n.id, name: n.name, key: jobKey(jobs[i]), result: results[i] })),
+        elapsedMs: performance.now() - t0,
+      })
       setRun({ status: 'idle' })
     } catch (err) {
       if (ac.signal.aborted || (err instanceof DOMException && err.name === 'AbortError')) {
@@ -125,46 +223,23 @@ export default function App() {
   useEffect(() => () => abortRef.current?.abort(), [])
 
   // ---- map interactions ---------------------------------------------------------------------------
-  const place = useCallback(
-    (ll: LatLng) => {
-      patch({ node: ll })
-      setTarget({ id: ++targetId.current, center: ll, zoom: 11 })
-    },
-    [patch],
-  )
-
   const inspect = useCallback(
-    (ll: LatLng): string | null => {
-      if (!result || !settings.node) return null
-      const d = fmtKm(haversineM(settings.node, ll))
-      const prx = sampleResult(result, ll.lat, ll.lng)
-      if (Number.isNaN(prx)) return `${d} from the node — outside the calculated area`
-      const margin = prx - sensitivity
-      const sign = margin >= 0 ? '+' : ''
-      return `${prx.toFixed(0)} dBm · ${sign}${margin.toFixed(0)} dB margin · ${d} from the node${margin < 0 ? ' (below sensitivity)' : ''}`
+    (ll: LatLng): string[] | null => {
+      if (!network || shown.length === 0) return null
+      const sources = shown.flatMap((n) => {
+        const node = settings.nodes.find((x) => x.id === n.id)
+        return node ? [{ name: node.name, position: node.position, result: n.result, sensitivityDbm: sensitivity[n.id] }] : []
+      })
+      const readings = readingsAt(sources, ll)
+      if (readings.length === 0) return ['Outside the calculated area']
+      const best = readings[0]
+      const from = sources.length === 1 ? 'the node' : best.name
+      const lines = [`${best.prxDbm.toFixed(0)} dBm · ${signed(best.marginDb)} dB margin · ${fmtKm(best.distanceM)} from ${from}${best.marginDb < 0 ? ' (below sensitivity)' : ''}`]
+      for (const r of readings.slice(1, 5)) lines.push(`${r.name}: ${signed(r.marginDb)} dB · ${fmtKm(r.distanceM)}`)
+      return lines
     },
-    [result, settings.node, sensitivity],
+    [network, shown, settings.nodes, sensitivity],
   )
-
-  const useMyLocation = useCallback(() => {
-    setLocationError(null)
-    if (!navigator.geolocation) {
-      setLocationError("Your browser can't share its location here.")
-      return
-    }
-    setLocating(true)
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        setLocating(false)
-        place({ lat: pos.coords.latitude, lng: pos.coords.longitude })
-      },
-      (err) => {
-        setLocating(false)
-        setLocationError(err.code === err.PERMISSION_DENIED ? 'Location permission was declined.' : "Couldn't get your location.")
-      },
-      { enableHighAccuracy: false, timeout: 10_000 },
-    )
-  }, [place])
 
   const share = useCallback(async () => {
     const h = toHash(settings)
@@ -178,8 +253,10 @@ export default function App() {
     setTimeout(() => setShareState('idle'), 2500)
   }, [settings])
 
+  const pins: PlannedPin[] = useMemo(() => settings.nodes.map((n, i) => ({ id: n.id, position: n.position, label: i + 1 })), [settings.nodes])
   const homeHref = '../'
-  const mapHref = `../map/${settings.regions.length ? '' : ''}`
+  const mapHref = '../map/'
+  const nextNodeName = `Node ${settings.nodes.length + 1}`
 
   return (
     <div className={`app${panelOpen ? '' : ' panel-closed'}`}>
@@ -206,25 +283,36 @@ export default function App() {
             onShowChange={setShow}
             roles={roles}
             onRolesChange={setRoles}
-            shownCount={shownNodes.length}
+            shownCount={shownExisting.length}
           />
-          <NodeForm
-            settings={settings}
-            onChange={patch}
-            onClearNode={() => patch({ node: null })}
+          <NodeList
+            nodes={settings.nodes}
+            selectedId={selected?.id ?? null}
+            onSelect={setSelectedId}
+            onRemove={removeNode}
+            onChange={patchNode}
+            onAdd={() => setPlacing(true)}
+            placing={placing}
+            onCancelPlacing={() => setPlacing(false)}
             onUseLocation={useMyLocation}
             locating={locating}
             locationError={locationError}
+            areas={areas}
           />
           <ResultPanel
             settings={settings}
             onChange={patch}
             run={run}
-            result={result}
+            network={network}
+            shown={shown}
+            sensitivity={sensitivity}
+            defaultSensitivity={selected ? effectiveSensitivityDbm(selected, { sensitivityOverride: null }) : null}
+            margins={margins}
+            geom={geom}
             stale={stale}
             onCalculate={calculate}
             onCancel={cancel}
-            display={display}
+            display={{ ...display, view }}
             onDisplayChange={setDisplay}
             onShare={share}
             shareState={shareState}
@@ -243,14 +331,17 @@ export default function App() {
             setBasemap('topo')
             setBasemapNotice('The street map could not be reached, so the topographic map is shown instead.')
           }}
-          nodes={shownNodes}
-          planned={settings.node}
-          onPlace={place}
-          onMovePlanned={(ll) => patch({ node: ll })}
+          nodes={shownExisting}
+          planned={pins}
+          selectedId={selected?.id ?? null}
+          onSelectNode={setSelectedId}
+          onMoveNode={(id, ll) => patchNode(id, { position: ll })}
+          placing={placing}
+          onPlace={(ll) => addNode(ll)}
           overlay={overlay}
           overlayOpacity={display.opacity}
           inspect={inspect}
-          onPlanHere={place}
+          onPlanHere={(ll) => addNode(ll)}
           target={target}
           layoutKey={String(panelOpen)}
         />
@@ -279,10 +370,16 @@ export default function App() {
             </button>
           </div>
         )}
-        {result && overlay && <Legend minMargin={display.minMargin} />}
-        {!settings.node && existing.nodes.length === 0 && (
-          <div className="map-hint">Click the map to place the node you want to plan.</div>
+        {network && overlay && <Legend minMargin={display.minMargin} />}
+        {placing && (
+          <div className="map-hint placing-banner" role="status">
+            <span>Click the map to place {nextNodeName}</span>
+            <button type="button" className="btn small" onClick={() => setPlacing(false)}>
+              Cancel
+            </button>
+          </div>
         )}
+        {!placing && settings.nodes.length === 0 && existing.nodes.length === 0 && <div className="map-hint">Click the map to place the node you want to plan.</div>}
       </main>
     </div>
   )

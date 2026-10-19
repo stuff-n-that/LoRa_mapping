@@ -1,7 +1,7 @@
 // Coverage prediction: for every pixel of an output raster, build the terrain
 // profile from the transmitter and ask ITM for the path loss.
 
-import { AzimuthalEquidistant, mercatorToLngLat, metersPerMercatorUnit, type LatLng } from './geo'
+import { AzimuthalEquidistant, lngLatToMercator, mercatorToLngLat, metersPerMercatorUnit, type LatLng } from './geo'
 import { fspl } from './fspl'
 import { itmP2PTls, newItmResult, type ItmParams } from './itm'
 import { receivedPowerDbm, type LinkBudget } from './radio'
@@ -29,6 +29,11 @@ export interface CoverageJob {
   /** Terrain tile zoom and the DEM cell size derived from it, metres. */
   zoom: number
   demCellM: number
+  /**
+   * The raster to fill. Left out, it is the square around `origin` with side 2 x radius; a plan
+   * with several nodes gives every node the same shared grid so their results line up pixel for pixel.
+   */
+  grid?: GridGeometry
 }
 
 export interface GridGeometry {
@@ -47,13 +52,10 @@ export const MIN_GRID = 16
 /** Upper bound on terrain samples per profile. */
 export const MAX_PROFILE_POINTS = 600
 
-export function gridGeometry(origin: LatLng, radiusM: number, outCellM: number): GridGeometry {
-  const n = Math.max(MIN_GRID, Math.min(MAX_GRID, Math.round((2 * radiusM) / outCellM)))
-  const uSize = (2 * radiusM) / metersPerMercatorUnit(origin.lat)
-  const cu = (origin.lng + 180) / 360
-  const cv = 0.5 - Math.log(Math.tan(Math.PI / 4 + (origin.lat * Math.PI) / 360)) / (2 * Math.PI)
-  const uMin = cu - uSize / 2
-  const vMin = cv - uSize / 2
+/** Widest area (ground metres across) one plan can cover; beyond this the raster would be too coarse to mean anything. */
+export const MAX_EXTENT_M = 500_000
+
+function squareGrid(uMin: number, vMin: number, uSize: number, n: number): GridGeometry {
   const c = (u: number, v: number): [number, number] => {
     const ll = mercatorToLngLat(u, v)
     return [ll.lng, ll.lat]
@@ -65,6 +67,50 @@ export function gridGeometry(origin: LatLng, radiusM: number, outCellM: number):
     uSize,
     corners: [c(uMin, vMin), c(uMin + uSize, vMin), c(uMin + uSize, vMin + uSize), c(uMin, vMin + uSize)],
   }
+}
+
+const pixelCount = (extentM: number, outCellM: number) => Math.max(MIN_GRID, Math.min(MAX_GRID, Math.round(extentM / outCellM)))
+
+/** The square raster around one node, 2 x radius across. */
+export function gridGeometry(origin: LatLng, radiusM: number, outCellM: number): GridGeometry {
+  const { u, v } = lngLatToMercator(origin.lng, origin.lat)
+  const uSize = (2 * radiusM) / metersPerMercatorUnit(origin.lat)
+  return squareGrid(u - uSize / 2, v - uSize / 2, uSize, pixelCount(2 * radiusM, outCellM))
+}
+
+/**
+ * One square raster that covers the coverage discs of every node. For a single node it is the
+ * same as gridGeometry. Pixels get larger when nodes are far apart (the pixel count is capped).
+ */
+export function unionGrid(origins: LatLng[], radiusM: number, outCellM: number): GridGeometry {
+  if (origins.length === 0) throw new RangeError('no nodes to cover')
+  let uLo = Infinity
+  let uHi = -Infinity
+  let vLo = Infinity
+  let vHi = -Infinity
+  for (const o of origins) {
+    const { u, v } = lngLatToMercator(o.lng, o.lat)
+    const r = radiusM / metersPerMercatorUnit(o.lat)
+    uLo = Math.min(uLo, u - r)
+    uHi = Math.max(uHi, u + r)
+    vLo = Math.min(vLo, v - r)
+    vHi = Math.max(vHi, v + r)
+  }
+  const side = Math.max(uHi - uLo, vHi - vLo)
+  const cu = (uLo + uHi) / 2
+  const cv = (vLo + vHi) / 2
+  const extentM = side * metersPerMercatorUnit(mercatorToLngLat(cu, cv).lat)
+  if (extentM > MAX_EXTENT_M) throw new RangeError('The nodes are too far apart to calculate together (more than about 500 km across).')
+  return squareGrid(cu - side / 2, cv - side / 2, side, pixelCount(extentM, outCellM))
+}
+
+/** The raster rows a node's coverage disc can touch (inclusive), with a small margin for Mercator stretch. */
+export function discRows(geom: GridGeometry, origin: LatLng, radiusM: number): [number, number] {
+  const { v } = lngLatToMercator(origin.lng, origin.lat)
+  const r = (1.05 * radiusM) / metersPerMercatorUnit(origin.lat)
+  const first = Math.floor(((v - r - geom.vMin) / geom.uSize) * geom.n)
+  const last = Math.ceil(((v + r - geom.vMin) / geom.uSize) * geom.n)
+  return [Math.max(0, first), Math.min(geom.n - 1, last)]
 }
 
 export interface CoverageContext {
@@ -80,7 +126,7 @@ export interface CoverageContext {
 export function createContext(job: CoverageJob, dem: Dem): CoverageContext {
   return {
     job,
-    geom: gridGeometry(job.origin, job.radiusM, job.outCellM),
+    geom: job.grid ?? gridGeometry(job.origin, job.radiusM, job.outCellM),
     dem,
     proj: new AzimuthalEquidistant(job.origin),
     params: {
@@ -161,9 +207,10 @@ export function computeCoverageInline(job: CoverageJob, tiles: Map<string, Float
   const dem = buildDem(source, job.origin, job.radiusM, job.demCellM)
   const ctx = createContext(job, dem)
   const n = ctx.geom.n
-  const data = new Float32Array(n * n)
+  const data = new Float32Array(n * n).fill(NaN)
   const row = new Float32Array(n)
-  for (let r = 0; r < n; r++) {
+  const [first, last] = discRows(ctx.geom, job.origin, job.radiusM)
+  for (let r = first; r <= last; r++) {
     computeRow(ctx, r, row)
     data.set(row, r * n)
   }

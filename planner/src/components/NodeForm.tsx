@@ -1,78 +1,52 @@
 import { BANDS, RADIO_PRESETS, eirpDbm, loraSensitivityDbm } from '../engine/radio'
-import type { LatLng } from '../engine/geo'
-import {
-  effectiveFreqMhz,
-  effectiveRadio,
-  effectiveSensitivityDbm,
-  linkBudget,
-  presetFor,
-  type Network,
-  type Settings,
-} from '../settings'
 import { activeQuickStart, QUICK_STARTS } from '../quickStarts'
-import { Field, NumberField, Section, Segmented } from './ui'
+import { MAX_NAME_LENGTH, effectiveFreqMhz, effectiveRadio, presetFor, type Network, type PlannedNode } from '../settings'
+import { Field, NumberField, Segmented } from './ui'
 
 interface Props {
-  settings: Settings
-  onChange: (patch: Partial<Settings>) => void
-  onClearNode: () => void
-  onUseLocation: () => void
-  locating: boolean
-  locationError: string | null
+  node: PlannedNode
+  onChange: (patch: Partial<PlannedNode>) => void
 }
 
 const SF_OPTIONS = [5, 6, 7, 8, 9, 10, 11, 12]
 const BW_OPTIONS = [7.8, 10.4, 15.6, 20.8, 31.25, 41.7, 62.5, 125, 250, 500]
 
-const fmt = (n: number) => `${n > 0 ? '' : ''}${n.toFixed(1)}`
+const fmt = (n: number) => n.toFixed(1)
 
-export default function NodeForm({ settings: s, onChange, onClearNode, onUseLocation, locating, locationError }: Props) {
-  const preset = presetFor(s.presetId)
-  const radio = effectiveRadio(s)
-  const freq = effectiveFreqMhz(s)
-  const sensitivity = effectiveSensitivityDbm(s)
-  const eirp = eirpDbm(linkBudget(s))
-  const presets = RADIO_PRESETS.filter((p) => p.network === s.network)
-  const active = activeQuickStart(s)
+/** The settings of one node: name, position, radio and hardware. */
+export default function NodeForm({ node: n, onChange }: Props) {
+  const preset = presetFor(n.presetId)
+  const radio = effectiveRadio(n)
+  const freq = effectiveFreqMhz(n)
+  const eirp = eirpDbm(n)
+  const presets = RADIO_PRESETS.filter((p) => p.network === n.network)
+  const active = activeQuickStart(n)
 
   const setNetwork = (network: Network) => {
     const first = RADIO_PRESETS.find((p) => p.network === network)
     onChange({ network, presetId: first ? first.id : 'custom' })
   }
 
-  const summary = s.node ? `${s.node.lat.toFixed(3)}, ${s.node.lng.toFixed(3)}` : 'click the map to place'
-
   return (
-    <Section title="Your node" summary={summary} defaultOpen>
+    <div className="node-form">
+      <Field label="Name">
+        {(id) => <input id={id} type="text" value={n.name} maxLength={MAX_NAME_LENGTH} onChange={(e) => onChange({ name: e.target.value })} onBlur={(e) => !e.target.value.trim() && onChange({ name: 'Node' })} />}
+      </Field>
+
       <div className="field">
         <span className="label">Location</span>
-        {s.node ? (
-          <div className="row">
-            <NumberField value={s.node.lat} min={-85} max={85} step={0.00001} decimals={5} onChange={(lat) => onChange({ node: { lat, lng: (s.node as LatLng).lng } })} unit="lat" />
-            <NumberField value={s.node.lng} min={-180} max={180} step={0.00001} decimals={5} onChange={(lng) => onChange({ node: { lat: (s.node as LatLng).lat, lng } })} unit="lng" />
-          </div>
-        ) : (
-          <p className="note">Click the map to place your node, or use your current location.</p>
-        )}
         <div className="row">
-          <button type="button" className="btn small" onClick={onUseLocation} disabled={locating}>
-            {locating ? 'Locating…' : 'Use my location'}
-          </button>
-          {s.node && (
-            <button type="button" className="btn small ghost" onClick={onClearNode}>
-              Remove node
-            </button>
-          )}
+          <NumberField value={n.position.lat} min={-85} max={85} step={0.00001} decimals={5} onChange={(lat) => onChange({ position: { lat, lng: n.position.lng } })} unit="lat" />
+          <NumberField value={n.position.lng} min={-180} max={180} step={0.00001} decimals={5} onChange={(lng) => onChange({ position: { lat: n.position.lat, lng } })} unit="lng" />
         </div>
-        {locationError && <p className="note warn">{locationError}</p>}
-        {s.node && <div className="hint">Drag the pin to move it.</div>}
+        <div className="hint">Drag its pin on the map to move it.</div>
       </div>
 
       <div className="field">
         <span className="label">Network</span>
         <Segmented
           label="Network"
-          value={s.network}
+          value={n.network}
           onChange={setNetwork}
           options={[
             { id: 'meshtastic', label: 'Meshtastic' },
@@ -83,7 +57,7 @@ export default function NodeForm({ settings: s, onChange, onClearNode, onUseLoca
 
       <Field label="Radio settings" hint={preset?.note}>
         {(id) => (
-          <select id={id} value={s.presetId} onChange={(e) => onChange({ presetId: e.target.value })}>
+          <select id={id} value={n.presetId} onChange={(e) => onChange({ presetId: e.target.value })}>
             {presets.map((p) => (
               <option key={p.id} value={p.id}>
                 {p.label}
@@ -95,11 +69,11 @@ export default function NodeForm({ settings: s, onChange, onClearNode, onUseLoca
       </Field>
       {preset && <div className="hint">Where these numbers come from: {preset.source}</div>}
 
-      {s.presetId === 'custom' && (
+      {n.presetId === 'custom' && (
         <div className="row">
           <Field label="Spreading factor">
             {(id) => (
-              <select id={id} value={s.sf} onChange={(e) => onChange({ sf: Number(e.target.value) })}>
+              <select id={id} value={n.sf} onChange={(e) => onChange({ sf: Number(e.target.value) })}>
                 {SF_OPTIONS.map((v) => (
                   <option key={v} value={v}>
                     SF{v}
@@ -110,7 +84,7 @@ export default function NodeForm({ settings: s, onChange, onClearNode, onUseLoca
           </Field>
           <Field label="Bandwidth">
             {(id) => (
-              <select id={id} value={s.bwKhz} onChange={(e) => onChange({ bwKhz: Number(e.target.value) })}>
+              <select id={id} value={n.bwKhz} onChange={(e) => onChange({ bwKhz: Number(e.target.value) })}>
                 {BW_OPTIONS.map((v) => (
                   <option key={v} value={v}>
                     {v} kHz
@@ -122,13 +96,13 @@ export default function NodeForm({ settings: s, onChange, onClearNode, onUseLoca
         </div>
       )}
 
-      {s.presetId === 'custom' ? (
-        <Field label="Frequency">{(id) => <NumberField id={id} value={s.freqMhz} min={150} max={1000} step={0.001} decimals={3} unit="MHz" onChange={(freqMhz) => onChange({ freqMhz })} />}</Field>
+      {n.presetId === 'custom' ? (
+        <Field label="Frequency">{(id) => <NumberField id={id} value={n.freqMhz} min={150} max={1000} step={0.001} decimals={3} unit="MHz" onChange={(freqMhz) => onChange({ freqMhz })} />}</Field>
       ) : (
         !preset?.freqMhz && (
           <Field label="Band" hint="Propagation changes very little across a band, so the band centre is used.">
             {(id) => (
-              <select id={id} value={s.bandId} onChange={(e) => onChange({ bandId: e.target.value })}>
+              <select id={id} value={n.bandId} onChange={(e) => onChange({ bandId: e.target.value })}>
                 {BANDS.map((b) => (
                   <option key={b.id} value={b.id}>
                     {b.label}
@@ -164,39 +138,14 @@ export default function NodeForm({ settings: s, onChange, onClearNode, onUseLoca
       </div>
 
       <div className="row">
-        <Field label="Transmit power">{(id) => <NumberField id={id} value={s.txPowerDbm} min={0} max={36} step={1} unit="dBm" onChange={(txPowerDbm) => onChange({ txPowerDbm })} />}</Field>
-        <Field label="Antenna gain">{(id) => <NumberField id={id} value={s.txGainDbi} min={-10} max={25} step={0.1} decimals={1} unit="dBi" onChange={(txGainDbi) => onChange({ txGainDbi })} />}</Field>
+        <Field label="Transmit power">{(id) => <NumberField id={id} value={n.txPowerDbm} min={0} max={36} step={1} unit="dBm" onChange={(txPowerDbm) => onChange({ txPowerDbm })} />}</Field>
+        <Field label="Antenna gain">{(id) => <NumberField id={id} value={n.txGainDbi} min={-10} max={25} step={0.1} decimals={1} unit="dBi" onChange={(txGainDbi) => onChange({ txGainDbi })} />}</Field>
       </div>
       <div className="row">
-        <Field label="Cable &amp; connector loss">{(id) => <NumberField id={id} value={s.txCableLossDb} min={0} max={20} step={0.1} decimals={1} unit="dB" onChange={(txCableLossDb) => onChange({ txCableLossDb })} />}</Field>
-        <Field label="Height above ground">{(id) => <NumberField id={id} value={s.hTxM} min={1} max={300} step={0.5} decimals={1} unit="m" onChange={(hTxM) => onChange({ hTxM })} />}</Field>
+        <Field label="Cable &amp; connector loss">{(id) => <NumberField id={id} value={n.txCableLossDb} min={0} max={20} step={0.1} decimals={1} unit="dB" onChange={(txCableLossDb) => onChange({ txCableLossDb })} />}</Field>
+        <Field label="Height above ground">{(id) => <NumberField id={id} value={n.hTxM} min={1} max={300} step={0.5} decimals={1} unit="m" onChange={(hTxM) => onChange({ hTxM })} />}</Field>
       </div>
-      <div className="readout">
-        Radiated power (EIRP) ≈ {fmt(eirp)} dBm. Check your region's legal limit for this band.
-      </div>
-
-      <details className="subsection">
-        <summary>The receiving device</summary>
-        <p className="note">Coverage shows where a device like this could hear your node.</p>
-        <div className="row">
-          <Field label="Height above ground">{(id) => <NumberField id={id} value={s.hRxM} min={0.5} max={100} step={0.5} decimals={1} unit="m" onChange={(hRxM) => onChange({ hRxM })} />}</Field>
-          <Field label="Antenna gain">{(id) => <NumberField id={id} value={s.rxGainDbi} min={-10} max={25} step={0.1} decimals={1} unit="dBi" onChange={(rxGainDbi) => onChange({ rxGainDbi })} />}</Field>
-        </div>
-        <div className="row">
-          <Field label="Cable loss">{(id) => <NumberField id={id} value={s.rxCableLossDb} min={0} max={20} step={0.1} decimals={1} unit="dB" onChange={(rxCableLossDb) => onChange({ rxCableLossDb })} />}</Field>
-          <Field label="Extra loss allowance" hint="Foliage, buildings, enclosures — things the model can't see. Your own estimate.">
-            {(id) => <NumberField id={id} value={s.extraLossDb} min={0} max={60} step={1} unit="dB" onChange={(extraLossDb) => onChange({ extraLossDb })} />}
-          </Field>
-        </div>
-        <label className="check">
-          <input type="checkbox" checked={s.sensitivityOverride !== null} onChange={(e) => onChange({ sensitivityOverride: e.target.checked ? Math.round(sensitivity) : null })} /> Set receiver sensitivity manually
-        </label>
-        {s.sensitivityOverride !== null && (
-          <Field label="Receiver sensitivity">
-            {(id) => <NumberField id={id} value={s.sensitivityOverride as number} min={-160} max={-60} step={0.5} decimals={1} unit="dBm" onChange={(sensitivityOverride) => onChange({ sensitivityOverride })} />}
-          </Field>
-        )}
-      </details>
-    </Section>
+      <div className="readout">Radiated power (EIRP) ≈ {fmt(eirp)} dBm. Check your region's legal limit for this band.</div>
+    </div>
   )
 }

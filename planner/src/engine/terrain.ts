@@ -179,6 +179,11 @@ export interface FetchTilesOptions {
   concurrency?: number
   urlTemplate?: string
   retries?: number
+  /**
+   * Decoded tiles already fetched, keyed "z/x/y" (null = the server has no such tile). Pass the same
+   * map for several calls (the nodes of one plan) so overlapping areas are downloaded once.
+   */
+  cache?: Map<string, Float32Array | null>
 }
 
 async function decodeBlob(blob: Blob): Promise<Float32Array> {
@@ -200,20 +205,31 @@ async function decodeBlob(blob: Blob): Promise<Float32Array> {
  * failure is retried and then thrown, so a broken download never silently becomes flat ground.
  */
 export async function fetchTiles(z: number, keys: TileKey[], opts: FetchTilesOptions = {}): Promise<Map<string, Float32Array>> {
-  const { signal, onProgress, concurrency = 8, urlTemplate = TERRARIUM_URL, retries = 2 } = opts
+  const { signal, onProgress, concurrency = 8, urlTemplate = TERRARIUM_URL, retries = 2, cache } = opts
   const out = new Map<string, Float32Array>()
   let next = 0
   let done = 0
 
   async function one(k: TileKey): Promise<void> {
+    const cacheKey = `${z}/${k.x}/${k.y}`
+    if (cache?.has(cacheKey)) {
+      const hit = cache.get(cacheKey)
+      if (hit) out.set(`${k.x}/${k.y}`, hit)
+      return
+    }
     let lastErr: unknown
     for (let attempt = 0; attempt <= retries; attempt++) {
       signal?.throwIfAborted()
       try {
         const res = await fetch(tileUrl(z, k.x, k.y, urlTemplate), { signal })
-        if (res.status === 404) return
+        if (res.status === 404) {
+          cache?.set(cacheKey, null)
+          return
+        }
         if (!res.ok) throw new Error(`terrain tile ${z}/${k.x}/${k.y} responded ${res.status}`)
-        out.set(`${k.x}/${k.y}`, await decodeBlob(await res.blob()))
+        const tile = await decodeBlob(await res.blob())
+        cache?.set(cacheKey, tile)
+        out.set(`${k.x}/${k.y}`, tile)
         return
       } catch (err) {
         if (signal?.aborted) throw err

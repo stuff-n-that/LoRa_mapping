@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import type { CoverageResult } from './engine/coverage'
+import type { GridGeometry } from './engine/coverage'
 import { fetchRegion, fetchRegionIndex, type ExistingNode, type RegionInfo } from './nodes'
 import { renderToObjectUrl, type RenderMode } from './render'
 
@@ -57,19 +57,22 @@ export function useExistingNodes(selected: string[]): ExistingNodesState {
 
 export interface Overlay {
   url: string
-  corners: CoverageResult['geom']['corners']
+  corners: GridGeometry['corners']
 }
 
-/** Renders the result to an image for the map; revokes old images as the display options change. */
-export function useOverlay(result: CoverageResult | null, sensitivityDbm: number, minMargin: number, mode: RenderMode): Overlay | null {
+/**
+ * Renders a grid of margins to an image for the map; revokes old images as the display options change.
+ * `margins` is n x n, row 0 at the top (see network.combineMargins).
+ */
+export function useOverlay(geom: GridGeometry | null, margins: Float32Array | null, minMargin: number, mode: RenderMode): Overlay | null {
   const [overlay, setOverlay] = useState<Overlay | null>(null)
   useEffect(() => {
-    if (!result) {
+    if (!geom || !margins) {
       setOverlay(null)
       return
     }
     let cancelled = false
-    renderToObjectUrl(result, { sensitivityDbm, minMargin, mode })
+    renderToObjectUrl(margins, geom.n, { minMargin, mode })
       .then((url) => {
         if (cancelled) {
           URL.revokeObjectURL(url)
@@ -77,13 +80,13 @@ export function useOverlay(result: CoverageResult | null, sensitivityDbm: number
         }
         setOverlay((prev) => {
           if (prev) setTimeout(() => URL.revokeObjectURL(prev.url), 1000) // let the map finish swapping
-          return { url, corners: result.geom.corners }
+          return { url, corners: geom.corners }
         })
       })
       .catch((err) => console.error('Could not draw the coverage overlay:', err))
     return () => {
       cancelled = true
     }
-  }, [result, sensitivityDbm, minMargin, mode])
+  }, [geom, margins, minMargin, mode])
   return overlay
 }
