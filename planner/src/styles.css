@@ -570,6 +570,9 @@ input[type='range'] {
   color: #16161a;
   font-size: 13px;
 }
+.signal-readout {
+  cursor: pointer;
+}
 
 /* ---- small screens: controls become a bottom sheet ---------------------------------------------- */
 @media (max-width: 800px) {

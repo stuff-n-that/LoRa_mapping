@@ -10,7 +10,8 @@ Spec and roadmap: [`docs/PLANNER-SPEC.md`](../docs/PLANNER-SPEC.md). This folder
 - One planned node: location (click, drag, type, or "use my location"), network, radio preset or custom SF/bandwidth, band, transmit power, antenna gain, cable loss, mast height, and a receiving device (height, gain, extra loss allowance, sensitivity).
 - Coverage over real terrain out to 5–50 km at three detail levels, typical or cautious planning, in seconds.
 - Heatmap (smooth or banded) with legend, adjustable opacity and minimum margin — these re-render instantly without recalculating.
-- Click the map to read the predicted signal at any point.
+- Click the map to read the predicted signal at any point; click the readout to dismiss it, or click elsewhere to read another spot.
+- A **Topo** basemap (elevation tint, hillshade, contour lines with elevation labels) drawn in the browser from the same terrain tiles, so it needs no extra service and doubles as the fallback when the street map can't be loaded. It has no road or place names; use Streets for those.
 - Everything in the URL hash: shareable links, and "Plan coverage from here" from the live map.
 
 ## Develop
@@ -74,7 +75,7 @@ test/          unit tests; fixtures/itm-golden.json; itm-reference/ (generator f
 
 ## Known gaps
 
-- The street basemap (OpenFreeMap) could not be reached from the sandbox this was built in, so it was only verified to fail over cleanly to shaded relief; check it on the deployed site. Node-count labels on clusters use its font server too.
+- The street basemap (OpenFreeMap) could not be reached from the sandbox this was built in, so it was only verified to fail over cleanly to the Topo map; check it on the deployed site. Node-count labels on clusters use its font server too.
 - Satellite imagery (Esri) likewise needs a check on the deployed site.
 - Radio presets: Meshtastic's LongFast and the other 250 kHz presets and MeshCore's US/Canada setting are confirmed from public docs; LongModerate/LongSlow were not confirmed, so use custom SF/bandwidth for those. MeshCore has no official source for its presets; the UI says so.
 - No vector contours yet (banded colours instead), no multi-node plans, and no hardware catalogue — see the spec's M2–M5.

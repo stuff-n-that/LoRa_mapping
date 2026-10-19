@@ -240,8 +240,8 @@ export default function App() {
         <MapView
           basemap={basemap}
           onBasemapUnavailable={() => {
-            setBasemap('relief')
-            setBasemapNotice('The street map could not be reached, so shaded relief is shown instead.')
+            setBasemap('topo')
+            setBasemapNotice('The street map could not be reached, so the topographic map is shown instead.')
           }}
           nodes={shownNodes}
           planned={settings.node}

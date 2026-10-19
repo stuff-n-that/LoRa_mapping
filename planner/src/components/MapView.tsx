@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react'
 import type { FeatureCollection } from 'geojson'
 import maplibregl, { type GeoJSONSource, type ImageSource, type Map as MlMap } from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
-import { BASEMAPS, styleFor, type BasemapId } from '../basemaps'
+import { BASEMAPS, registerTopoProtocols, styleFor, type BasemapId } from '../basemaps'
 import { TERRAIN_ATTRIBUTION } from '../engine/terrain'
 import type { LatLng } from '../engine/geo'
 import type { Overlay } from '../hooks'
@@ -58,6 +58,7 @@ export default function MapView(props: Props) {
   const container = useRef<HTMLDivElement>(null)
   const mapRef = useRef<MlMap | null>(null)
   const markerRef = useRef<maplibregl.Marker | null>(null)
+  const signalPopup = useRef<maplibregl.Popup | null>(null)
   const styleReady = useRef(false)
   const latest = useRef(props)
   latest.current = props
@@ -136,6 +137,7 @@ export default function MapView(props: Props) {
   // ---- create the map once -----------------------------------------------------------
   useEffect(() => {
     const p = latest.current
+    registerTopoProtocols() // before any style that uses them is requested
     const map = new maplibregl.Map({
       container: container.current as HTMLDivElement,
       style: styleFor(p.basemap),
@@ -164,7 +166,7 @@ export default function MapView(props: Props) {
       syncLayers()
     })
     map.on('error', () => {
-      // A street style that never loads (blocked or offline) falls back to shaded relief.
+      // A street style that never loads (blocked or offline) falls back to the topographic map.
       if (!styleReady.current && latest.current.basemap === 'streets') latest.current.onBasemapUnavailable()
     })
 
@@ -213,8 +215,31 @@ export default function MapView(props: Props) {
         latest.current.onPlace(ll)
         return
       }
+      signalPopup.current?.remove() // only ever one readout on screen
+      signalPopup.current = null
       const message = latest.current.inspect(ll)
-      if (message) new maplibregl.Popup({ closeButton: false, offset: 8 }).setLngLat(e.lngLat).setText(message).addTo(map)
+      if (!message) return
+      // Clicking the readout itself dismisses it; clicking elsewhere on the map reads that spot instead.
+      const box = document.createElement('div')
+      box.className = 'signal-readout'
+      box.setAttribute('role', 'button')
+      box.tabIndex = 0
+      box.setAttribute('aria-label', `${message}. Activate to dismiss.`)
+      box.appendChild(text('div', message))
+      box.appendChild(text('div', 'Click to dismiss', { fontSize: '11px', opacity: '0.6', marginTop: '2px' }))
+      const popup: maplibregl.Popup = new maplibregl.Popup({ closeButton: false, offset: 8 }).setLngLat(e.lngLat).setDOMContent(box).addTo(map)
+      const dismiss = () => popup.remove()
+      box.addEventListener('click', dismiss)
+      box.addEventListener('keydown', (k) => {
+        if (k.key === 'Enter' || k.key === ' ' || k.key === 'Escape') {
+          k.preventDefault()
+          dismiss()
+        }
+      })
+      popup.on('close', () => {
+        if (signalPopup.current === popup) signalPopup.current = null
+      })
+      signalPopup.current = popup
     })
 
     return () => {
