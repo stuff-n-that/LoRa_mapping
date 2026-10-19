@@ -9,6 +9,7 @@ import {
   type Network,
   type Settings,
 } from '../settings'
+import { activeQuickStart, QUICK_STARTS } from '../quickStarts'
 import { Field, NumberField, Section, Segmented } from './ui'
 
 interface Props {
@@ -19,12 +20,6 @@ interface Props {
   locating: boolean
   locationError: string | null
 }
-
-const QUICK_STARTS: { label: string; hint: string; patch: Partial<Settings> }[] = [
-  { label: 'Window / balcony', hint: '5 m, small antenna', patch: { hTxM: 5, txPowerDbm: 22, txGainDbi: 2, txCableLossDb: 0 } },
-  { label: 'Rooftop node', hint: '10 m, 5.8 dBi omni', patch: { hTxM: 10, txPowerDbm: 22, txGainDbi: 5.8, txCableLossDb: 1 } },
-  { label: 'Hilltop repeater', hint: '15 m, 8 dBi collinear', patch: { hTxM: 15, txPowerDbm: 22, txGainDbi: 8, txCableLossDb: 1.5 } },
-]
 
 const SF_OPTIONS = [5, 6, 7, 8, 9, 10, 11, 12]
 const BW_OPTIONS = [7.8, 10.4, 15.6, 20.8, 31.25, 41.7, 62.5, 125, 250, 500]
@@ -38,6 +33,7 @@ export default function NodeForm({ settings: s, onChange, onClearNode, onUseLoca
   const sensitivity = effectiveSensitivityDbm(s)
   const eirp = eirpDbm(linkBudget(s))
   const presets = RADIO_PRESETS.filter((p) => p.network === s.network)
+  const active = activeQuickStart(s)
 
   const setNetwork = (network: Network) => {
     const first = RADIO_PRESETS.find((p) => p.network === network)
@@ -73,18 +69,6 @@ export default function NodeForm({ settings: s, onChange, onClearNode, onUseLoca
       </div>
 
       <div className="field">
-        <span className="label">Quick start</span>
-        <div className="quick">
-          {QUICK_STARTS.map((q) => (
-            <button key={q.label} type="button" className="btn small" title={q.hint} onClick={() => onChange(q.patch)}>
-              {q.label}
-            </button>
-          ))}
-        </div>
-        <div className="hint">Typical values for the antenna and mast. Adjust to your own gear below.</div>
-      </div>
-
-      <div className="field">
         <span className="label">Network</span>
         <Segmented
           label="Network"
@@ -109,7 +93,7 @@ export default function NodeForm({ settings: s, onChange, onClearNode, onUseLoca
           </select>
         )}
       </Field>
-      {preset && <div className="hint">Source: {preset.source}</div>}
+      {preset && <div className="hint">Where these numbers come from: {preset.source}</div>}
 
       {s.presetId === 'custom' && (
         <div className="row">
@@ -158,6 +142,25 @@ export default function NodeForm({ settings: s, onChange, onClearNode, onUseLoca
 
       <div className="readout" aria-live="polite">
         SF{radio.sf} · {radio.bwKhz} kHz · {freq} MHz · sensitivity ≈ {fmt(loraSensitivityDbm(radio.sf, radio.bwKhz))} dBm
+      </div>
+
+      <div className="field">
+        <span className="label">Quick start</span>
+        <div className="quick" role="group" aria-label="Quick start">
+          {QUICK_STARTS.map((q) => (
+            <button
+              key={q.id}
+              type="button"
+              className={`btn small${active?.id === q.id ? ' on' : ''}`}
+              aria-pressed={active?.id === q.id}
+              title={q.hint}
+              onClick={() => onChange(q.patch)}
+            >
+              {q.label}
+            </button>
+          ))}
+        </div>
+        <div className="hint">Fills in the four boxes below with typical values; change any of them to suit your own gear.</div>
       </div>
 
       <div className="row">

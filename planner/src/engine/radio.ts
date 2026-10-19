@@ -29,8 +29,9 @@ export interface RadioPreset {
   note?: string
 }
 
-const MESHTASTIC_DOCS = 'meshtastic.org LoRa configuration docs / blog'
-const MESHCORE_COMMUNITY = 'community MeshCore docs (no official source found) — check your network'
+const MESHTASTIC_DOCS = 'the Meshtastic documentation (meshtastic.org).'
+const MESHCORE_COMMUNITY =
+  'community MeshCore guides, as MeshCore has no official list. Groups pick their own settings, so use Custom if yours differ.'
 
 export const RADIO_PRESETS: RadioPreset[] = [
   { id: 'mt-long-fast', network: 'meshtastic', label: 'Long Fast (default) · SF11 · 250 kHz', sf: 11, bwKhz: 250, source: MESHTASTIC_DOCS },
