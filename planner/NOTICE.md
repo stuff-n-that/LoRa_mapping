@@ -18,4 +18,4 @@ Elevation comes from AWS Terrain Tiles (<https://registry.opendata.aws/terrain-t
 
 ## Software
 
-MapLibre GL JS (BSD-3-Clause), React (MIT), Vite (MIT).
+MapLibre GL JS (BSD-3-Clause), maplibre-contour (BSD-3-Clause; draws the Topo basemap's contour lines), React (MIT), Vite (MIT).

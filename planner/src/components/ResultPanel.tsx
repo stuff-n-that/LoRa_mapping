@@ -173,7 +173,7 @@ export default function ResultPanel(p: Props) {
           {result.job.budget.extraLossDb === 0 && (
             <p className="note">Terrain only: no allowance for trees or buildings is included. Real coverage is usually smaller — try the extra-loss setting under "The receiving device".</p>
           )}
-          <p className="hint">Click the map to read the predicted signal at any point. Computed in {(result.elapsedMs / 1000).toFixed(1)} s.</p>
+          <p className="hint">Click the map to read the predicted signal at any point; click the readout to dismiss it. Computed in {(result.elapsedMs / 1000).toFixed(1)} s.</p>
 
           <div className="field">
             <label htmlFor="opacity">Overlay opacity</label>
