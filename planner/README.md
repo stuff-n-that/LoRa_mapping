@@ -2,7 +2,7 @@
 
 A free, in-browser coverage planner for MeshCore and Meshtastic nodes. Place a node, choose radio settings, antenna and mast height, and see predicted coverage over real terrain, alongside the existing nodes of both networks. Published at `/plan/` next to the live map (`/map/`) and the landing page (`/`).
 
-Spec and roadmap: [`docs/PLANNER-SPEC.md`](../docs/PLANNER-SPEC.md). This folder is **M0 + M1** of that plan.
+Spec and roadmap: [`docs/PLANNER-SPEC.md`](../docs/PLANNER-SPEC.md). This folder is **M0 + M1**, the point-to-point link analysis from **M2**, and part of **M3** of that plan.
 
 ## What it does today
 
@@ -13,6 +13,8 @@ Spec and roadmap: [`docs/PLANNER-SPEC.md`](../docs/PLANNER-SPEC.md). This folder
 - Heatmap (smooth or banded) with legend, adjustable opacity and minimum margin — these re-render instantly without recalculating.
 - Click the map to read the predicted signal at any point; click the readout to dismiss it, or click elsewhere to read another spot.
 - A **Topo** basemap (elevation tint, hillshade, contour lines with elevation labels) drawn in the browser from the same terrain tiles, so it needs no extra service and doubles as the fallback when the street map can't be loaded. It has no road or place names; use Streets for those.
+- **Point-to-point link** ("Check a link" in the sidebar, panel on the right). From a planned node to another node (both directions, with a warning if their radio settings differ) or to a point you click on the map and can drag. Shows a verdict (good / marginal / poor, with the reasons), distance, ITM path loss, signal at the receiver and margin, and a terrain profile with the line of sight and first Fresnel zone. Move along the chart (mouse, touch or arrow keys) to read any point and see it marked on the map; a red dot marks where the ground blocks the line of sight.
+- Optional **signal lines** (dB contours at the colour-band edges) and a **hover readout** of the signal under the pointer, both in the Coverage section.
 - Everything in the URL hash: shareable links, and "Plan coverage from here" from the live map.
 
 ## Develop
@@ -36,6 +38,10 @@ The planner reads node data from `../map/regions/` (published by the map's deplo
 4. **Link budget.** Received power = EIRP + receive gain − cable losses − extra loss allowance − path loss. The map shows *margin*: received power minus the receiver's sensitivity (from the radio preset, or entered).
 5. **Parallelism.** Rows are split across Web Workers (interleaved for load balance); each builds its own copy of the grid, so no shared memory or special server headers are needed.
 6. **Several nodes.** Every node is computed onto one shared raster that covers all their discs (so results line up pixel for pixel), one node after another, each spread across the worker pool; each node only computes the rows its own disc touches, and terrain tiles shared between nodes are downloaded once. Results are kept per node as received power, so changing sensitivity, the view or the colours re-renders without recalculating. When nodes are far apart the pixels get coarser (the raster is capped at 1024 × 1024), and plans spanning more than about 500 km are refused.
+
+### How a link is analysed
+
+Terrain is downloaded only along the path (the tiles it crosses, not the whole bounding box) and cached, then sampled about every 30–90 m (at most 1500 points). The same ITM model and shared assumptions (climate, ground, reliability, extra loss) as coverage give the path loss; geometry gives the rest. The chart adds earth curvature using the effective radius implied by the model's surface refractivity (`1/(157e-9 (1 − 0.04665 e^(Ns/179.3)))`), draws the straight line between the antenna tops, and the first Fresnel zone `√(λ·d₁·d₂/d)`. The verdict is a rule of thumb: margin ≥ 10 dB in every direction, line of sight clear and ≥ 60% of the first Fresnel zone clear. The model's distance regime (inside/beyond the radio horizon) is shown under "How this is worked out"; it is not a line-of-sight test.
 
 A 20 km run at normal detail takes about a second on a laptop; 50 km at fine detail about ten.
 
@@ -68,8 +74,9 @@ The planner was designed from the public feature descriptions of two existing to
 
 ```
 src/engine/    itm.ts (NTIA port) · terrain.ts · coverage.ts · coverage.worker.ts · run.ts · radio.ts · geo.ts
+src/engine/link.ts  path geometry, Fresnel, verdict · src/linkModel.ts · linkRun.ts · chartScale.ts · contours.ts
 src/           settings.ts (state + URL hash) · render.ts · nodes.ts · hooks.ts · basemaps.ts · App.tsx
-src/components MapView (MapLibre) · NodeForm · ExistingNetworks · ResultPanel · ui
+src/components MapView (MapLibre) · LinkSetup · LinkPanel · ProfileChart · NodeForm · ExistingNetworks · ResultPanel · ui
 test/          unit tests; fixtures/itm-golden.json; itm-reference/ (generator for the fixtures)
 ```
 

@@ -1,12 +1,18 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { BASEMAPS, type BasemapId } from './basemaps'
 import ExistingNetworks from './components/ExistingNetworks'
-import MapView, { type MapViewTarget, type PlannedPin } from './components/MapView'
+import LinkPanel from './components/LinkPanel'
+import LinkSetup from './components/LinkSetup'
+import MapView, { type LinkOnMap, type MapViewTarget, type PlannedPin } from './components/MapView'
 import NodeList from './components/NodeList'
 import ResultPanel, { Legend, type DisplayOptions, type RunStatus } from './components/ResultPanel'
 import type { LatLng } from './engine/geo'
+import { pointAlongPath } from './engine/link'
 import { runNetwork } from './engine/run'
-import { useExistingNodes, useOverlay } from './hooks'
+import { contourLines } from './contours'
+import { useExistingNodes, useLinkAnalysis, useOverlay } from './hooks'
+import { buildLinkPlan } from './linkModel'
+import { MARGIN_BANDS } from './render'
 import { combineMargins, readingsAt, summarizeMargins, type NetworkResult } from './network'
 import { ROLE_CATEGORIES } from './nodes'
 import {
@@ -36,8 +42,9 @@ export default function App() {
   const [roles, setRoles] = useState(() => new Set(ROLE_CATEGORIES.map((c) => c.key)))
   const [run, setRun] = useState<RunStatus>({ status: 'idle' })
   const [network, setNetwork] = useState<NetworkResult | null>(null)
-  const [display, setDisplay] = useState<DisplayOptions>({ opacity: 0.7, minMargin: 0, mode: 'smooth', view: 'all' })
+  const [display, setDisplay] = useState<DisplayOptions>({ opacity: 0.7, minMargin: 0, mode: 'smooth', view: 'all', contours: false, hover: true })
   const [panelOpen, setPanelOpen] = useState(true)
+  const [linkCursor, setLinkCursor] = useState<number | null>(null)
   const [target, setTarget] = useState<MapViewTarget | null>(null)
   const [shareState, setShareState] = useState<'idle' | 'copied' | 'failed'>('idle')
   const [locating, setLocating] = useState(false)
@@ -68,6 +75,7 @@ export default function App() {
       setSettings(next)
       setSelectedId(null)
       setPlacing(false)
+      setLinkCursor(null)
       if (next.nodes[0]) setTarget({ id: ++targetId.current, center: next.nodes[0].position, zoom: 11 })
     }
     window.addEventListener('hashchange', onHashChange)
@@ -118,7 +126,12 @@ export default function App() {
   const removeNode = useCallback((id: string) => {
     // Ids are reused, so once nothing is left drop the old result rather than let a new "Node 1" inherit it.
     if (settingsRef.current.nodes.every((n) => n.id === id)) setNetwork(null)
-    setSettings((s) => ({ ...s, nodes: s.nodes.filter((n) => n.id !== id) }))
+    setSettings((s) => ({
+      ...s,
+      nodes: s.nodes.filter((n) => n.id !== id),
+      // a link that ended at this node has nothing left to analyse
+      link: s.link && (s.link.from === id || (s.link.to.kind === 'node' && s.link.to.id === id)) ? null : s.link,
+    }))
     setSelectedId((cur) => (cur === id ? null : cur))
   }, [])
 
@@ -181,6 +194,60 @@ export default function App() {
     }
     return out
   }, [network, settings.nodes, sensitivity, display.minMargin])
+
+  // Signal lines at the edges of the colour bands.
+  const signalLines = useMemo(
+    () => (display.contours && geom && margins ? contourLines(geom, margins, MARGIN_BANDS.map((b) => b.from).filter((l) => l >= display.minMargin)) : null),
+    [display.contours, geom, margins, display.minMargin],
+  )
+
+  // ---- the link being analysed ----------------------------------------------------------------
+  const linkBuilt = useMemo(() => (settings.link ? buildLinkPlan(settings) : null), [settings])
+  const linkPlan = linkBuilt?.ok ? linkBuilt.plan : null
+  const linkWaiting = linkBuilt && !linkBuilt.ok ? linkBuilt.reason : null
+  const linkState = useLinkAnalysis(linkPlan)
+  const linkOpen = !!settings.link
+  const pickingTarget = linkWaiting === 'pick-target'
+  const setLinkTarget = useCallback(
+    (position: LatLng) =>
+      setSettings((s) => (s.link && s.link.to.kind === 'point' ? { ...s, link: { ...s.link, to: { kind: 'point', position } } } : s)),
+    [],
+  )
+  const linkOnMap: LinkOnMap | null = useMemo(() => {
+    if (!linkPlan) return null
+    const analysis = linkState.status === 'ready' ? linkState.analysis : null
+    const np = analysis ? analysis.path.distKm.length - 1 : 0
+    const along = (i: number) => pointAlongPath(linkPlan.a.position, linkPlan.b.position, i / np)
+    return {
+      a: linkPlan.a.position,
+      b: linkPlan.b.position,
+      bIsTarget: !linkPlan.bIsNode,
+      verdict: analysis ? analysis.assessment.verdict : null,
+      cursor: analysis && linkCursor !== null && linkCursor <= np ? along(linkCursor) : null,
+      obstruction: analysis && !analysis.path.losClear ? along(analysis.path.blockingIndex) : null,
+    }
+  }, [linkPlan, linkState, linkCursor])
+  useEffect(() => setLinkCursor(null), [settings.link])
+  const setLink = useCallback(
+    (link: Settings['link']) => {
+      patch({ link })
+      // frame the link when it is first opened between two nodes
+      if (link?.to.kind === 'node') {
+        const toId = link.to.id
+        const a = settingsRef.current.nodes.find((n) => n.id === link.from)
+        const b = settingsRef.current.nodes.find((n) => n.id === toId)
+        if (a && b)
+          setTarget({
+            id: ++targetId.current,
+            bounds: [
+              [Math.min(a.position.lng, b.position.lng), Math.min(a.position.lat, b.position.lat)],
+              [Math.max(a.position.lng, b.position.lng), Math.max(a.position.lat, b.position.lat)],
+            ],
+          })
+      }
+    },
+    [patch],
+  )
 
   const currentKey = useMemo(() => planKey(settings), [settings])
   const stale = !!network && currentKey !== network.nodes.map((n) => `${n.id}:${n.key}`).join('|')
@@ -259,7 +326,7 @@ export default function App() {
   const nextNodeName = `Node ${settings.nodes.length + 1}`
 
   return (
-    <div className={`app${panelOpen ? '' : ' panel-closed'}`}>
+    <div className={`app${panelOpen ? '' : ' panel-closed'}${linkOpen ? ' link-open' : ''}`}>
       <header className="topbar">
         <a className="brand" href={homeHref} aria-label="LoRa Mesh Map home">
           LoRa Planner <span className="beta">beta</span>
@@ -299,6 +366,7 @@ export default function App() {
             locationError={locationError}
             areas={areas}
           />
+          <LinkSetup nodes={settings.nodes} link={settings.link} defaultFromId={selected?.id ?? null} onChange={setLink} />
           <ResultPanel
             settings={settings}
             onChange={patch}
@@ -343,7 +411,13 @@ export default function App() {
           inspect={inspect}
           onPlanHere={(ll) => addNode(ll)}
           target={target}
-          layoutKey={String(panelOpen)}
+          layoutKey={`${panelOpen}${linkOpen}`}
+          link={linkOnMap}
+          pickingTarget={pickingTarget}
+          onPickTarget={setLinkTarget}
+          onMoveTarget={setLinkTarget}
+          signalLines={signalLines}
+          hover={display.hover}
         />
         <div className="basemap-switch" role="radiogroup" aria-label="Base map">
           {BASEMAPS.map((b) => (
@@ -371,6 +445,14 @@ export default function App() {
           </div>
         )}
         {network && overlay && <Legend minMargin={display.minMargin} />}
+        {pickingTarget && (
+          <div className="map-hint placing-banner" role="status">
+            <span>Click the map to place the other end of the link</span>
+            <button type="button" className="btn small" onClick={() => setLink(null)}>
+              Cancel
+            </button>
+          </div>
+        )}
         {placing && (
           <div className="map-hint placing-banner" role="status">
             <span>Click the map to place {nextNodeName}</span>
@@ -381,6 +463,8 @@ export default function App() {
         )}
         {!placing && settings.nodes.length === 0 && existing.nodes.length === 0 && <div className="map-hint">Click the map to place the node you want to plan.</div>}
       </main>
+
+      {linkOpen && <LinkPanel plan={linkPlan} waiting={linkWaiting} state={linkState} cursor={linkCursor} onCursor={setLinkCursor} onClose={() => setLink(null)} />}
     </div>
   )
 }

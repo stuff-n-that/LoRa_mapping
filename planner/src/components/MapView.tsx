@@ -1,11 +1,13 @@
 import { useEffect, useRef } from 'react'
-import type { FeatureCollection } from 'geojson'
+import type { FeatureCollection, MultiLineString } from 'geojson'
 import maplibregl, { type GeoJSONSource, type ImageSource, type Map as MlMap } from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import { BASEMAPS, registerTopoProtocols, styleFor, type BasemapId } from '../basemaps'
 import { TERRAIN_ATTRIBUTION } from '../engine/terrain'
 import type { LatLng } from '../engine/geo'
 import type { Overlay } from '../hooks'
+import type { Verdict } from '../engine/link'
+import type { ContourProps } from '../contours'
 import type { ExistingNode } from '../nodes'
 
 export interface MapViewTarget {
@@ -36,6 +38,27 @@ interface Props {
   target: MapViewTarget | null
   /** Changes when the surrounding layout changes size. */
   layoutKey: string
+  /** The link being analysed: a line between its ends, coloured by how good it looks. */
+  link: LinkOnMap | null
+  /** True while the next click should place the far end of a link. */
+  pickingTarget: boolean
+  onPickTarget: (ll: LatLng) => void
+  onMoveTarget: (ll: LatLng) => void
+  /** Lines where the signal crosses a margin, or null for none. */
+  signalLines: FeatureCollection<MultiLineString, ContourProps> | null
+  /** Show the signal under the pointer as it moves. */
+  hover: boolean
+}
+
+export interface LinkOnMap {
+  a: LatLng
+  b: LatLng
+  /** The far end is a draggable map point rather than a planned node. */
+  bIsTarget: boolean
+  verdict: Verdict | null
+  /** Where the chart cursor is, and where the ground blocks the line of sight, if anywhere. */
+  cursor: LatLng | null
+  obstruction: LatLng | null
 }
 
 export interface PlannedPin {
@@ -71,6 +94,8 @@ export default function MapView(props: Props) {
   const mapRef = useRef<MlMap | null>(null)
   const markersRef = useRef<Map<string, maplibregl.Marker>>(new Map())
   const signalPopup = useRef<maplibregl.Popup | null>(null)
+  const targetMarker = useRef<maplibregl.Marker | null>(null)
+  const hoverEl = useRef<HTMLDivElement>(null)
   const styleReady = useRef(false)
   const latest = useRef(props)
   latest.current = props
@@ -146,6 +171,66 @@ export default function MapView(props: Props) {
     }
   }
 
+  function syncExtras() {
+    const map = mapRef.current
+    if (!map || !styleReady.current) return
+    const { link, signalLines } = latest.current
+
+    const lines = signalLines ?? EMPTY
+    const existingLines = map.getSource('signal-lines') as GeoJSONSource | undefined
+    if (existingLines) existingLines.setData(lines)
+    else {
+      map.addSource('signal-lines', { type: 'geojson', data: lines })
+      map.addLayer({
+        id: 'signal-lines',
+        type: 'line',
+        source: 'signal-lines',
+        layout: { 'line-join': 'round' },
+        paint: { 'line-color': '#101018', 'line-width': 1.4, 'line-opacity': 0.75 },
+      })
+      map.addLayer({
+        id: 'signal-line-labels',
+        type: 'symbol',
+        source: 'signal-lines',
+        layout: {
+          'symbol-placement': 'line',
+          'symbol-spacing': 320,
+          'text-field': ['concat', ['to-string', ['get', 'level']], ' dB'],
+          'text-font': ['Noto Sans Bold'],
+          'text-size': 11,
+        },
+        paint: { 'text-color': '#101018', 'text-halo-color': '#ffffff', 'text-halo-width': 1.6 },
+      })
+    }
+
+    const features: FeatureCollection['features'] = []
+    if (link) {
+      features.push({ type: 'Feature', properties: { kind: 'line', verdict: link.verdict ?? 'none' }, geometry: { type: 'LineString', coordinates: [[link.a.lng, link.a.lat], [link.b.lng, link.b.lat]] } })
+      if (link.obstruction) features.push({ type: 'Feature', properties: { kind: 'block' }, geometry: { type: 'Point', coordinates: [link.obstruction.lng, link.obstruction.lat] } })
+      if (link.cursor) features.push({ type: 'Feature', properties: { kind: 'cursor' }, geometry: { type: 'Point', coordinates: [link.cursor.lng, link.cursor.lat] } })
+    }
+    const data: FeatureCollection = { type: 'FeatureCollection', features }
+    const existingLink = map.getSource('link') as GeoJSONSource | undefined
+    if (existingLink) existingLink.setData(data)
+    else {
+      map.addSource('link', { type: 'geojson', data })
+      map.addLayer({ id: 'link-casing', type: 'line', source: 'link', filter: ['==', ['get', 'kind'], 'line'], paint: { 'line-color': '#ffffff', 'line-width': 7, 'line-opacity': 0.9 }, layout: { 'line-cap': 'round' } })
+      map.addLayer({
+        id: 'link-line',
+        type: 'line',
+        source: 'link',
+        filter: ['==', ['get', 'kind'], 'line'],
+        layout: { 'line-cap': 'round' },
+        paint: {
+          'line-width': 4,
+          'line-color': ['match', ['get', 'verdict'], 'good', '#1f9d55', 'marginal', '#e6a100', 'poor', '#d93a17', '#6b6b78'],
+        },
+      })
+      map.addLayer({ id: 'link-block', type: 'circle', source: 'link', filter: ['==', ['get', 'kind'], 'block'], paint: { 'circle-radius': 7, 'circle-color': '#d93a17', 'circle-stroke-width': 2.5, 'circle-stroke-color': '#ffffff' } })
+      map.addLayer({ id: 'link-cursor', type: 'circle', source: 'link', filter: ['==', ['get', 'kind'], 'cursor'], paint: { 'circle-radius': 8, 'circle-color': 'rgba(255,255,255,0.25)', 'circle-stroke-width': 3, 'circle-stroke-color': '#101018' } })
+    }
+  }
+
   // ---- create the map once -----------------------------------------------------------
   useEffect(() => {
     const p = latest.current
@@ -176,6 +261,7 @@ export default function MapView(props: Props) {
     map.on('style.load', () => {
       styleReady.current = true
       syncLayers()
+      syncExtras()
     })
     map.on('error', () => {
       // A street style that never loads (blocked or offline) falls back to the topographic map.
@@ -223,6 +309,10 @@ export default function MapView(props: Props) {
     map.on('click', (e) => {
       if (map.queryRenderedFeatures(e.point, { layers: ['node-clusters', 'node-points'].filter((l) => map.getLayer(l)) }).length) return
       const ll = { lat: e.lngLat.lat, lng: e.lngLat.lng }
+      if (latest.current.pickingTarget) {
+        latest.current.onPickTarget(ll)
+        return
+      }
       if (latest.current.planned.length === 0 || latest.current.placing) {
         latest.current.onPlace(ll)
         return
@@ -255,9 +345,41 @@ export default function MapView(props: Props) {
       signalPopup.current = popup
     })
 
+    // Live readout under the pointer, if switched on. One frame at a time, so a fast mouse stays cheap.
+    let frame = 0
+    const hideHover = () => {
+      cancelAnimationFrame(frame)
+      if (hoverEl.current) hoverEl.current.hidden = true
+    }
+    map.on('mousemove', (e) => {
+      const el = hoverEl.current
+      const p = latest.current
+      if (!el) return
+      if (!p.hover || p.placing || p.pickingTarget) {
+        el.hidden = true
+        return
+      }
+      cancelAnimationFrame(frame)
+      frame = requestAnimationFrame(() => {
+        const first = p.inspect({ lat: e.lngLat.lat, lng: e.lngLat.lng })?.[0]
+        if (!first || first.startsWith('Outside')) {
+          el.hidden = true
+          return
+        }
+        el.textContent = first
+        el.hidden = false
+        el.style.transform = `translate(${Math.round(e.point.x + 14)}px, ${Math.round(e.point.y + 14)}px)`
+      })
+    })
+    map.on('mouseout', hideHover)
+    map.on('movestart', hideHover)
+
     return () => {
+      cancelAnimationFrame(frame)
       markersRef.current.forEach((m) => m.remove())
       markersRef.current.clear()
+      targetMarker.current?.remove()
+      targetMarker.current = null
       map.remove()
       mapRef.current = null
       styleReady.current = false
@@ -335,6 +457,40 @@ export default function MapView(props: Props) {
     }
   }, [props.planned, props.selectedId])
 
+  // ---- the link line, its markers, and the signal lines --------------------------------------
+  useEffect(() => {
+    syncExtras()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [props.link, props.signalLines])
+
+  // the far end of a link that is a point on the map: a draggable flag
+  const targetAt = props.link?.bIsTarget ? props.link.b : null
+  useEffect(() => {
+    const map = mapRef.current
+    if (!map) return
+    if (!targetAt) {
+      targetMarker.current?.remove()
+      targetMarker.current = null
+      return
+    }
+    if (!targetMarker.current) {
+      const el = document.createElement('div')
+      el.className = 'target-marker'
+      el.textContent = 'B'
+      el.setAttribute('role', 'button')
+      el.setAttribute('aria-label', 'Far end of the link. Drag to move.')
+      el.addEventListener('click', (ev) => ev.stopPropagation())
+      const m = new maplibregl.Marker({ element: el, draggable: true }).setLngLat([targetAt.lng, targetAt.lat]).addTo(map)
+      m.on('dragend', () => {
+        const ll = m.getLngLat()
+        latest.current.onMoveTarget({ lat: ll.lat, lng: ll.lng })
+      })
+      targetMarker.current = m
+    } else {
+      targetMarker.current.setLngLat([targetAt.lng, targetAt.lat])
+    }
+  }, [targetAt?.lat, targetAt?.lng, !!targetAt])
+
   // ---- moving the view ------------------------------------------------------------------------
   useEffect(() => {
     const map = mapRef.current
@@ -350,7 +506,8 @@ export default function MapView(props: Props) {
 
   return (
     <div className="map-wrap">
-      <div ref={container} className={`map${props.placing ? ' placing' : ''}`} aria-label={`Map (${BASEMAPS.find((b) => b.id === props.basemap)?.label})`} />
+      <div ref={container} className={`map${props.placing || props.pickingTarget ? ' placing' : ''}`} aria-label={`Map (${BASEMAPS.find((b) => b.id === props.basemap)?.label})`} />
+      <div ref={hoverEl} className="hover-readout" hidden aria-hidden="true" />
     </div>
   )
 }

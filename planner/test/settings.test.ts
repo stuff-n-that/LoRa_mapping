@@ -212,3 +212,55 @@ describe('building engine jobs', () => {
     expect(planKey(DEFAULTS)).toBeNull()
   })
 })
+
+
+describe('link in the URL', () => {
+  const a = node()
+  const b = newNode([a], offset(5000, 0))
+  const c = newNode([a, b], offset(0, 6000))
+  const three = [a, { ...b, id: 'n2' }, { ...c, id: 'n3' }]
+
+  it('writes and reads a link between two nodes', () => {
+    const s = plan(three, { link: { from: 'n1', to: { kind: 'node', id: 'n3' } } })
+    expect(toHash(s)).toContain('lk=1:3')
+    expect(parseSettings(toHash(s)).link).toEqual({ from: 'n1', to: { kind: 'node', id: 'n3' } })
+  })
+
+  it('writes and reads a link to a point, and to a target not yet placed', () => {
+    const point = offset(3000, 3000)
+    const toPoint = plan(three, { link: { from: 'n2', to: { kind: 'point', position: point } } })
+    expect(parseSettings(toHash(toPoint)).link).toEqual(toPoint.link)
+    const unset = plan(three, { link: { from: 'n2', to: { kind: 'point', position: null } } })
+    expect(toHash(unset)).toContain('lk=2:')
+    expect(parseSettings(toHash(unset)).link).toEqual(unset.link)
+  })
+
+  it('works with the original one-node link format too', () => {
+    const s = plan([a], { link: { from: 'n1', to: { kind: 'point', position: offset(2000, 0) } } })
+    const h = toHash(s)
+    expect(h).toContain('lat=')
+    expect(parseSettings(h)).toEqual(s)
+  })
+
+  it('drops links that point at nodes that are not there', () => {
+    expect(parseSettings('n=10,20&n=11,21&lk=3:1').link).toBeNull() // no node 3
+    expect(parseSettings('n=10,20&n=11,21&lk=1:1').link).toBeNull() // a node to itself
+    expect(parseSettings('n=10,20&n=11,21&lk=1:7').link).toBeNull()
+    expect(parseSettings('n=10,20&lk=1:abc').link).toBeNull()
+    expect(parseSettings('n=10,20&lk=1:99,0').link).toBeNull() // off the map
+    expect(parseSettings('n=10,20&lk=oops').link).toBeNull()
+    expect(parseSettings('lk=1:2').link).toBeNull() // no nodes at all
+  })
+
+  it('does not write a link whose node was removed', () => {
+    expect(toHash(plan([a], { link: { from: 'n9', to: { kind: 'point', position: null } } }))).not.toContain('lk=')
+    expect(toHash(plan([a], { link: { from: 'n1', to: { kind: 'node', id: 'n9' } } }))).not.toContain('lk=')
+  })
+
+  it('numbers the link by position in the plan, even when ids have gaps', () => {
+    const gapped = [{ ...a, id: 'n1' }, { ...b, id: 'n5' }]
+    const s = plan(gapped, { link: { from: 'n1', to: { kind: 'node', id: 'n5' } } })
+    expect(toHash(s)).toContain('lk=1:2')
+    expect(parseSettings(toHash(s)).link).toEqual({ from: 'n1', to: { kind: 'node', id: 'n2' } })
+  })
+})

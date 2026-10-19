@@ -73,6 +73,60 @@ export function tilesCovering(centre: LatLng, radiusM: number, z: number): TileK
 }
 
 /**
+ * The tiles a path from `a` to `b` passes through at zoom `z`, plus the neighbours a bilinear lookup
+ * near a tile edge can touch. Far fewer than the whole bounding box for a long, thin path.
+ */
+export function tilesAlongPath(a: LatLng, b: LatLng, z: number): TileKey[] {
+  const n = 2 ** z
+  const world = TILE_SIZE * n
+  const proj = new AzimuthalEquidistant(a)
+  const end = { x: 0, y: 0 }
+  proj.forward(b.lat, b.lng, end)
+  const d = Math.hypot(end.x, end.y)
+  const widest = Math.max(Math.abs(a.lat), Math.abs(b.lat))
+  const tileGroundM = (2 * Math.PI * EARTH_RADIUS_M * Math.cos(widest * DEG)) / n
+  const steps = Math.max(1, Math.ceil(d / (tileGroundM / 2)))
+  const seen = new Set<string>()
+  const out: TileKey[] = []
+  const ll = { lat: 0, lng: 0 }
+  for (let k = 0; k <= steps; k++) {
+    proj.inverse((end.x * k) / steps, (end.y * k) / steps, ll)
+    const px = ((ll.lng + 180) / 360) * world
+    const py = (0.5 - Math.log(Math.tan(Math.PI / 4 + (ll.lat * DEG) / 2)) / (2 * Math.PI)) * world
+    for (const dx of [-2, 0, 2]) {
+      for (const dy of [-2, 0, 2]) {
+        const tx = (((Math.floor((px + dx) / TILE_SIZE) % n) + n) % n)
+        const ty = Math.min(n - 1, Math.max(0, Math.floor((py + dy) / TILE_SIZE)))
+        const key = `${tx}/${ty}`
+        if (!seen.has(key)) {
+          seen.add(key)
+          out.push({ x: tx, y: ty })
+        }
+      }
+    }
+  }
+  return out
+}
+
+/** The finest zoom (up to `maxZoom`) at which the corridor of a path needs no more than `maxTiles` tiles. */
+export function linkZoom(a: LatLng, b: LatLng, targetCellM: number, maxTiles = 80, maxZoom = 12): number {
+  const mid = { lat: (a.lat + b.lat) / 2, lng: (a.lng + b.lng) / 2 }
+  const wanted = Math.round(Math.log2((2 * Math.PI * EARTH_RADIUS_M * Math.cos(mid.lat * DEG)) / (TILE_SIZE * targetCellM)))
+  let z = Math.max(5, Math.min(maxZoom, wanted))
+  while (z > 5 && tilesAlongPath(a, b, z).length > maxTiles) z--
+  return z
+}
+
+/** Drop the oldest entries so a long-lived tile cache stays bounded. */
+export function trimCache<V>(cache: Map<string, V>, max: number): void {
+  while (cache.size > max) {
+    const oldest = cache.keys().next().value
+    if (oldest === undefined) break
+    cache.delete(oldest)
+  }
+}
+
+/**
  * Pick a tile zoom whose pixels are about `targetCellM` wide, but not so deep that
  * the number of tiles to download passes `maxTiles`.
  */
