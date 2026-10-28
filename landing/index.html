@@ -55,6 +55,8 @@
      stays in the page palette (and flips to the darker green in light mode). */
   .btn-plan { text-decoration: none; background: var(--meshtastic); color: var(--on-accent); font-weight: 700; padding: 14px 28px; border-radius: 10px; display: inline-block; }
   .btn-plan:hover { color: var(--on-accent); filter: brightness(1.08); }
+  .photo-placeholder { width: 100%; height: 100px; background: var(--bg-elevated); border-radius: 8px; display: flex; align-items: center; justify-content: center; }
+  .coming-soon { border: 1px solid var(--meshtastic); color: var(--meshtastic); border-radius: 999px; padding: 4px 12px; font-size: 12px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; }
   .card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; }
   .nav {
     position: sticky; top: 0; z-index: 20;
@@ -298,7 +300,7 @@
       Use it to decide where to try, then test on air. Multi-node plans and hardware guidance are on the way.
     </p>
     <div>
-      <a href="plan/" class="btn-primary" style="font-size: 16px;">Open the planner →</a>
+      <a href="plan/" class="btn-plan" style="font-size: 16px;">Open the planner →</a>
     </div>
   </section>
 
@@ -312,25 +314,25 @@
     <div class="grid-4">
       <!-- TODO: replace href="#" with real affiliate links once a program is set up. -->
       <div class="card" style="padding: 20px; display: flex; flex-direction: column; gap: 10px;">
-        <div style="width: 100%; height: 100px; background: var(--bg-elevated); border-radius: 8px; display: flex; align-items: center; justify-content: center; color: var(--text-dim); font-size: 12px;">[Product photo]</div>
+        <div class="photo-placeholder"><span class="coming-soon">Coming soon</span></div>
         <h3 style="font-size: 15px;">Heltec V3</h3>
         <p style="font-size: 13px; margin: 0;">Budget-friendly ESP32 LoRa board with a built-in OLED screen.</p>
         <a href="#" style="text-decoration: none; text-align: center; border: 1px solid var(--border); border-radius: 8px; padding: 8px; font-size: 13px; font-weight: 600;">[Affiliate link]</a>
       </div>
       <div class="card" style="padding: 20px; display: flex; flex-direction: column; gap: 10px;">
-        <div style="width: 100%; height: 100px; background: var(--bg-elevated); border-radius: 8px; display: flex; align-items: center; justify-content: center; color: var(--text-dim); font-size: 12px;">[Product photo]</div>
+        <div class="photo-placeholder"><span class="coming-soon">Coming soon</span></div>
         <h3 style="font-size: 15px;">RAK4631</h3>
         <p style="font-size: 13px; margin: 0;">Low-power nRF52 module, popular for solar-powered repeaters.</p>
         <a href="#" style="text-decoration: none; text-align: center; border: 1px solid var(--border); border-radius: 8px; padding: 8px; font-size: 13px; font-weight: 600;">[Affiliate link]</a>
       </div>
       <div class="card" style="padding: 20px; display: flex; flex-direction: column; gap: 10px;">
-        <div style="width: 100%; height: 100px; background: var(--bg-elevated); border-radius: 8px; display: flex; align-items: center; justify-content: center; color: var(--text-dim); font-size: 12px;">[Product photo]</div>
+        <div class="photo-placeholder"><span class="coming-soon">Coming soon</span></div>
         <h3 style="font-size: 15px;">T-Beam</h3>
         <p style="font-size: 13px; margin: 0;">Built-in GPS, good for a mobile or tracker node.</p>
         <a href="#" style="text-decoration: none; text-align: center; border: 1px solid var(--border); border-radius: 8px; padding: 8px; font-size: 13px; font-weight: 600;">[Affiliate link]</a>
       </div>
       <div class="card" style="padding: 20px; display: flex; flex-direction: column; gap: 10px;">
-        <div style="width: 100%; height: 100px; background: var(--bg-elevated); border-radius: 8px; display: flex; align-items: center; justify-content: center; color: var(--text-dim); font-size: 12px;">[Product photo]</div>
+        <div class="photo-placeholder"><span class="coming-soon">Coming soon</span></div>
         <h3 style="font-size: 15px;">T-Deck</h3>
         <p style="font-size: 13px; margin: 0;">Keyboard + screen, built for chat-style use on the trail.</p>
         <a href="#" style="text-decoration: none; text-align: center; border: 1px solid var(--border); border-radius: 8px; padding: 8px; font-size: 13px; font-weight: 600;">[Affiliate link]</a>
