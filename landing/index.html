@@ -51,6 +51,10 @@
   .wrap { width: 100%; max-width: 1280px; margin: 0 auto; display: flex; flex-direction: column; }
   .btn-primary { text-decoration: none; background: var(--accent); color: var(--on-accent); font-weight: 700; padding: 14px 28px; border-radius: 10px; display: inline-block; }
   .btn-secondary { text-decoration: none; border: 1px solid var(--border); color: var(--text); font-weight: 600; padding: 14px 28px; border-radius: 10px; display: inline-block; }
+  /* Green call-to-action for the planner, reusing the Meshtastic green so it
+     stays in the page palette (and flips to the darker green in light mode). */
+  .btn-plan { text-decoration: none; background: var(--meshtastic); color: var(--on-accent); font-weight: 700; padding: 14px 28px; border-radius: 10px; display: inline-block; }
+  .btn-plan:hover { color: var(--on-accent); filter: brightness(1.08); }
   .card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; }
   .nav {
     position: sticky; top: 0; z-index: 20;
@@ -158,7 +162,7 @@
         <span class="icon-binoculars" style="width: 19px; height: 19px;" aria-hidden="true"></span>
         Open the live map →
       </a>
-      <a href="plan/" class="btn-secondary" style="font-size: 16px;">Plan coverage</a>
+      <a href="plan/" class="btn-plan" style="font-size: 16px;">Plan coverage</a>
       <a href="#faq" class="btn-secondary" style="font-size: 16px;">How it works</a>
     </div>
 
