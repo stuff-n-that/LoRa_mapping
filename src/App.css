@@ -133,6 +133,17 @@
 .overlay-button, .overlay-comparison select { border: 1px solid rgba(255,255,255,.25); background: #17171a; color: #f2f2f2; border-radius: 6px; padding: 8px 10px; min-height: 44px; font: inherit; font-size: 13px; cursor: pointer; }
 .overlay-button:disabled { opacity: .5; cursor: wait; }
 .overlay-import { width: 100%; }
+.overlay-dropzone { border: 1px dashed rgba(255,179,71,.65); border-radius: 8px; transition: background .15s, border-color .15s; }
+.overlay-dropzone .overlay-import { border: 0; background: transparent; min-height: 76px; }
+.overlay-dropzone.is-dragging { background: rgba(255,179,71,.16); border-color: #ffb347; outline: 2px solid rgba(255,179,71,.3); }
+.overlay-drop-desktop, .overlay-drop-browse { display: block; }
+.overlay-drop-desktop { font-weight: 700; margin-bottom: 5px; }
+.overlay-drop-browse { font-size: 12px; }
+.overlay-dropzone:focus-within { outline: 2px solid #3aa0ff; outline-offset: 2px; }
+@media (hover: none) and (pointer: coarse) {
+  .overlay-drop-desktop { display: none; }
+  .overlay-dropzone .overlay-import { min-height: 48px; }
+}
 .overlay-list { max-height: 32dvh; overflow-y: auto; overscroll-behavior: contain; }
 .overlay-card { padding: 9px 0; border-bottom: 1px solid rgba(255,255,255,.12); }
 .overlay-row, .overlay-toggle { display: flex; align-items: center; gap: 8px; }

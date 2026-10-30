@@ -1,12 +1,21 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { compareOverlays, parseLocalOverlay, readOverlayFile, MAX_FILE_BYTES } from '../src/utils/localOverlays.js'
+import { compareOverlays, droppedOverlayFile, parseLocalOverlay, readOverlayFile, MAX_FILE_BYTES } from '../src/utils/localOverlays.js'
 
 const keyA = 'a'.repeat(64), keyB = 'b'.repeat(64), keyC = 'c'.repeat(64)
 const contact = (key, name, lat = 51.5, lon = -0.1) => ({ public_key: key, adv_name: name, adv_lat: lat, adv_lon: lon, type: 2 })
 const parse = obj => parseLocalOverlay(JSON.stringify(obj), 'contacts.json')
 const snapshot = contacts => ({ self_info: { name: 'Test radio' }, captured_at_utc: '2026-01-01T12:00:00Z', contacts })
 const point = (properties = {}, coordinates = [-0.1, 51.5]) => ({ type: 'Feature', geometry: { type: 'Point', coordinates }, properties })
+
+test('dropped files use the same local importer; multiple files and non-file drops are rejected', async () => {
+  const file = { name: 'dropped.geojson', size: 100, text: async () => JSON.stringify({ type: 'FeatureCollection', features: [point({ name: 'Dropped' })] }) }
+  const result = await readOverlayFile(droppedOverlayFile({ files: [file] }))
+  assert.equal(result.nodes[0].name, 'Dropped')
+  assert.throws(() => droppedOverlayFile({ files: [] }), /Drop one/)
+  assert.throws(() => droppedOverlayFile({ files: [file, file] }), /Drop one/)
+  assert.throws(() => droppedOverlayFile(null), /Drop one/)
+})
 
 test('imports MeshCore identity and capture time while discarding secrets and raw fields', () => {
   const data = snapshot({ [keyA]: { ...contact(keyA, '<script>test</script>'), private_key: 'SECRET', channel_secret: 'SECRET' } })

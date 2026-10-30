@@ -82,6 +82,12 @@ export async function readOverlayFile(file) {
   return parseLocalOverlay(await file.text(), file.name)
 }
 
+export function droppedOverlayFile(transfer) {
+  const files = Array.from(transfer?.files || [])
+  if (files.length !== 1) throw new Error('Drop one JSON or GeoJSON file at a time. Existing layers have been kept.')
+  return files[0]
+}
+
 // Only compare against currently loaded public records and enabled local layers.
 // A missing identity is unmatchable, not evidence of absence from the public feed.
 export function compareOverlays(publicNodes, layers, view = 'all') {

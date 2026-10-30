@@ -31,7 +31,7 @@ Ships with a small set of clearly-labelled sample nodes so the map isn't empty o
 
 ## Temporary local overlays
 
-Open **Map layers → Your local overlays → Import local file**. Both accordions start collapsed. Importing a file collapses the controls again, shows a brief import summary, and fits the first imported layer on the map. On phones, the existing map-controls drawer closes too. Expand the section again to toggle a layer, change its colour, zoom to it, replace its file, remove it, or inspect omitted records.
+Open **Map layers → Your local overlays**. Drop a single JSON or GeoJSON file into the dashed import box, or click/tap it to browse files. Both paths use the same validation and local-only import. Multiple-file and text/URL drops are rejected; a drop always adds a layer rather than replacing an existing one. Both accordions start collapsed. Importing a file collapses the controls again, shows a brief import summary, and fits the first imported layer on the map. On phones, the existing map-controls drawer closes too. Expand the section again to toggle a layer, change its colour, zoom to it, replace its file, remove it, or inspect omitted records.
 
 Supported formats:
 
