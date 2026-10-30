@@ -142,7 +142,7 @@ export default function LinkPanel({ plan, waiting, state, cursor, onCursor, onCl
               for the curve of the earth (effective radius {(analysis.path.effectiveEarthM / 1000).toFixed(0)} km). The path loss is the Longley-Rice (ITM) estimate, the same model as the coverage map.
               The first Fresnel zone is the egg-shaped region around the straight line where obstacles start to weaken the signal; keeping about 60% of it clear is the usual aim.
             </p>
-            <p className="note">Antenna heights come from the node settings (and from "The receiving device" for a point on the map). Trees and buildings are not in the terrain data — use the extra-loss allowance.</p>
+            <p className="note">Antenna heights come from the node settings. For a point on the map, set "Target height above ground" under "Check a link" (it starts from "The receiving device" height). Trees and buildings are not in the terrain data — use the extra-loss allowance.</p>
           </details>
         </div>
       )}

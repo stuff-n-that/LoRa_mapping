@@ -67,7 +67,8 @@ export function buildLinkPlan(s: Settings): LinkPlanResult {
       ok: true,
       plan: {
         a: from,
-        b: { name: 'Target', position: link.to.position, heightM: s.hRxM },
+        // the target's own height if the link sets one, otherwise the shared "receiving device" height
+        b: { name: 'Target', position: link.to.position, heightM: link.to.heightM ?? s.hRxM },
         bIsNode: false,
         radio,
         // the target uses the shared "receiving device" settings, and the same network settings as the node

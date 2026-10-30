@@ -8,6 +8,7 @@ LoRa Mesh Map reads from the public MeshCore and Meshtastic community map APIs (
 
 - [Open the live map](https://stuff-n-that.github.io/LoRa_mapping/map/): the interactive map — region picker (load one or more countries' real node data), node-type filter, switchable base map layers (streets/satellite/terrain), marker clustering.
 - [Open the planner](https://stuff-n-that.github.io/LoRa_mapping/plan/): a free, in-browser coverage planner (beta). Place a MeshCore or Meshtastic node, choose radio settings, antenna and mast height, and see predicted coverage over real terrain using the Longley-Rice (ITM) model, alongside the existing nodes of both networks. An estimate based on terrain only; it does not model buildings, trees, weather or interference.
+- [How to use the planner](https://stuff-n-that.github.io/LoRa_mapping/guide/): a step-by-step guide with screenshots: placing nodes, radio and antenna settings, calculating and reading coverage, the receiving device and extra-loss allowance, checking a point-to-point link (including the target's height above ground), and sharing a plan.
 - [Landing page](https://stuff-n-that.github.io/LoRa_mapping/): background on LoRa mesh networking, a MeshCore vs Meshtastic comparison, starter hardware suggestions, and a frequently-asked-questions section.
 
 ## Key facts

@@ -210,7 +210,7 @@ export default function App() {
   const pickingTarget = linkWaiting === 'pick-target'
   const setLinkTarget = useCallback(
     (position: LatLng) =>
-      setSettings((s) => (s.link && s.link.to.kind === 'point' ? { ...s, link: { ...s.link, to: { kind: 'point', position } } } : s)),
+      setSettings((s) => (s.link && s.link.to.kind === 'point' ? { ...s, link: { ...s.link, to: { ...s.link.to, position } } } : s)),
     [],
   )
   const linkOnMap: LinkOnMap | null = useMemo(() => {
@@ -323,6 +323,7 @@ export default function App() {
   const pins: PlannedPin[] = useMemo(() => settings.nodes.map((n, i) => ({ id: n.id, position: n.position, label: i + 1 })), [settings.nodes])
   const homeHref = '../'
   const mapHref = '../map/'
+  const guideHref = '../guide/'
   const nextNodeName = `Node ${settings.nodes.length + 1}`
 
   return (
@@ -332,6 +333,7 @@ export default function App() {
           LoRa Planner <span className="beta">beta</span>
         </a>
         <nav aria-label="Site">
+          <a href={guideHref}>How to use</a>
           <a href={mapHref}>Live map</a>
           <a href={homeHref}>About</a>
         </nav>
@@ -366,7 +368,7 @@ export default function App() {
             locationError={locationError}
             areas={areas}
           />
-          <LinkSetup nodes={settings.nodes} link={settings.link} defaultFromId={selected?.id ?? null} onChange={setLink} />
+          <LinkSetup nodes={settings.nodes} link={settings.link} defaultFromId={selected?.id ?? null} defaultTargetHeightM={settings.hRxM} onChange={setLink} />
           <ResultPanel
             settings={settings}
             onChange={patch}

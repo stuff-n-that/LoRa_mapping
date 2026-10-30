@@ -1,0 +1,556 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>How to use the LoRa Planner — step-by-step guide with screenshots</title>
+<meta name="description" content="A step-by-step guide to the free LoRa coverage planner for MeshCore and Meshtastic: place a node, set up the radio, calculate coverage over real terrain, check a point-to-point link, and share your plan.">
+<meta property="og:type" content="article">
+<meta property="og:title" content="How to use the LoRa Planner — step-by-step guide">
+<meta property="og:description" content="Place a node, calculate coverage over real terrain, and check a point-to-point link, with screenshots and plain-language explanations.">
+<meta name="twitter:card" content="summary">
+<link rel="canonical" href="https://stuff-n-that.github.io/LoRa_mapping/guide/">
+<link rel="icon" type="image/svg+xml" href="../favicon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0b0b0d;
+    --bg-elevated: #151518;
+    --card: #1b1b1f;
+    --border: rgba(255,255,255,0.1);
+    --text: #f2f2f2;
+    --text-dim: #b8b8bf;
+    --meshcore: #3aa0ff;
+    --meshtastic: #5fd88f;
+    --accent: #3aa0ff;
+    --on-accent: #0b0b0d;
+    --callout: #ff2d6f;
+    --warn: #e6a100;
+  }
+  @media (prefers-color-scheme: light) {
+    :root {
+      --bg: #f7f7f8;
+      --bg-elevated: #ffffff;
+      --card: #ffffff;
+      --border: rgba(0,0,0,0.12);
+      --text: #16161a;
+      --text-dim: #55555c;
+      --meshcore: #0b6fcf;
+      --meshtastic: #11834f;
+      --accent: #0b6fcf;
+      --on-accent: #ffffff;
+      --warn: #a56a00;
+    }
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body { margin: 0; background: var(--bg); color: var(--text); font-family: system-ui, -apple-system, "Segoe UI", sans-serif; }
+  h1, h2, h3 { font-family: "Space Grotesk", system-ui, sans-serif; margin: 0; }
+  a { color: var(--meshcore); }
+  a:hover { color: #70b8ff; }
+  p, li { line-height: 1.65; color: var(--text-dim); }
+  strong { color: var(--text); }
+  .wrap { width: 100%; max-width: 1280px; margin: 0 auto; display: flex; flex-direction: column; }
+  .btn-secondary { text-decoration: none; border: 1px solid var(--border); color: var(--text); font-weight: 600; padding: 14px 28px; border-radius: 10px; display: inline-block; }
+  .btn-plan { text-decoration: none; background: var(--meshtastic); color: var(--on-accent); font-weight: 700; padding: 14px 28px; border-radius: 10px; display: inline-block; }
+  .btn-plan:hover { color: var(--on-accent); filter: brightness(1.08); }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; }
+  .nav {
+    position: sticky; top: 0; z-index: 20;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 20px 48px; border-bottom: 1px solid var(--border);
+    background: var(--bg); flex-wrap: wrap; gap: 16px;
+  }
+  .nav-links { display: flex; align-items: center; gap: 28px; flex-wrap: wrap; }
+  .nav-links a:not(.btn-plan) { text-decoration: none; font-size: 14px; color: var(--text-dim); }
+  .btn-plan.nav-cta { font-size: 14px; padding: 10px 18px; }
+
+  main { padding: 0 48px 72px; display: flex; flex-direction: column; gap: 64px; }
+  .narrow { max-width: 860px; width: 100%; margin: 0 auto; }
+
+  /* Contents list */
+  .toc { padding: 24px 28px; }
+  .toc h2 { font-size: 18px; margin-bottom: 12px; }
+  .toc ol { margin: 0; padding-left: 22px; columns: 2; column-gap: 40px; }
+  .toc li { break-inside: avoid; padding: 2px 0; font-size: 15px; }
+  .toc a { text-decoration: none; }
+  .toc a:hover { text-decoration: underline; }
+
+  /* A step: heading, text, screenshot, numbered key */
+  .step { display: flex; flex-direction: column; gap: 18px; scroll-margin-top: 90px; }
+  .step h2 { font-size: 30px; line-height: 1.2; display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; }
+  .step h2 .n { font-size: 14px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--meshtastic); font-family: system-ui, sans-serif; font-weight: 700; }
+  .step h3 { font-size: 20px; margin-top: 10px; }
+  .step p { margin: 0; font-size: 16px; }
+  figure { margin: 4px 0 0; display: flex; flex-direction: column; gap: 14px; }
+  figure img { width: 100%; height: auto; display: block; border-radius: 12px; border: 1px solid var(--border); box-shadow: 0 6px 24px rgba(0,0,0,0.25); background: var(--bg-elevated); }
+  figcaption { font-size: 13px; color: var(--text-dim); }
+
+  /* The key to the pink numbers drawn on each screenshot */
+  .key { list-style: none; margin: 0; padding: 0; counter-reset: key; display: flex; flex-direction: column; gap: 12px; }
+  .key li { counter-increment: key; display: grid; grid-template-columns: 28px 1fr; gap: 12px; align-items: start; font-size: 15px; }
+  .key li::before {
+    content: counter(key); width: 26px; height: 26px; border-radius: 50%;
+    background: var(--callout); color: #fff; font: 700 14px/26px system-ui, sans-serif; text-align: center; margin-top: 1px;
+  }
+  .key li > div > strong:first-child { display: block; margin-bottom: 1px; }
+
+  .note, .tip { border-radius: 10px; padding: 14px 18px; font-size: 15px; line-height: 1.6; border: 1px solid var(--border); border-left-width: 4px; background: var(--bg-elevated); }
+  .note { border-left-color: var(--warn); }
+  .tip { border-left-color: var(--meshtastic); }
+  .note p, .tip p { font-size: 15px; margin: 0; }
+  .note strong:first-child, .tip strong:first-child { color: var(--text); }
+
+  table { width: 100%; border-collapse: collapse; font-size: 15px; }
+  th, td { text-align: left; vertical-align: top; padding: 10px 14px; border-bottom: 1px solid var(--border); color: var(--text-dim); line-height: 1.55; }
+  th { color: var(--text); font-weight: 600; background: var(--bg-elevated); }
+  .table-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: 10px; }
+
+  dl.glossary { margin: 0; display: grid; grid-template-columns: max-content 1fr; gap: 10px 24px; }
+  dl.glossary dt { color: var(--text); font-weight: 600; }
+  dl.glossary dd { margin: 0; color: var(--text-dim); line-height: 1.6; }
+
+  kbd { font: 600 0.85em ui-monospace, monospace; border: 1px solid var(--border); border-bottom-width: 2px; border-radius: 5px; padding: 1px 6px; background: var(--bg-elevated); color: var(--text); }
+  .swatch { display: inline-block; width: 12px; height: 12px; border-radius: 3px; vertical-align: -1px; margin-right: 4px; }
+
+  .faq-item { border-bottom: 1px solid var(--border); }
+  .faq-item summary {
+    list-style: none; cursor: pointer; padding: 18px 0; min-height: 44px;
+    display: flex; align-items: center; justify-content: space-between; gap: 16px;
+    font-size: 16px; font-weight: 600; color: var(--text);
+  }
+  .faq-item summary::-webkit-details-marker { display: none; }
+  .faq-item .chev { flex-shrink: 0; color: var(--text-dim); transition: transform 0.15s; }
+  .faq-item[open] .chev { transform: rotate(180deg); }
+  .faq-item p { margin: 0 0 18px; }
+
+  @media (max-width: 760px) {
+    .nav, main, footer { padding-left: 20px; padding-right: 20px; }
+    .nav { position: static; }
+    .nav-cta { flex-basis: 100%; text-align: center; margin-top: 4px; }
+    .step { scroll-margin-top: 16px; }
+    .toc ol { columns: 1; }
+    .step h2 { font-size: 25px; }
+    dl.glossary { grid-template-columns: 1fr; gap: 2px; }
+    dl.glossary dd { margin-bottom: 10px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+
+  <nav class="nav">
+    <a href="../" aria-label="LoRa Mesh Map — home" style="text-decoration: none; color: inherit; display: flex; align-items: center; gap: 10px;">
+      <svg width="32" height="32" viewBox="0 0 32 32" aria-hidden="true" style="flex-shrink: 0; color: var(--text);">
+        <circle cx="16" cy="16" r="14" fill="none" stroke="currentColor" stroke-width="1" opacity="0.35"></circle>
+        <circle cx="16" cy="16" r="10.5" fill="none" stroke="currentColor" stroke-width="0.75" opacity="0.25"></circle>
+        <polygon points="16,16 14.85,13.23 16,3 17.15,13.23" fill="var(--meshcore)"></polygon>
+        <polygon points="16,16 17.15,13.23 21.66,10.34 18.77,14.85" fill="currentColor" opacity="0.55"></polygon>
+        <polygon points="16,16 18.77,14.85 29,16 18.77,17.15" fill="currentColor" opacity="0.55"></polygon>
+        <polygon points="16,16 18.77,17.15 21.66,21.66 17.15,18.77" fill="currentColor" opacity="0.55"></polygon>
+        <polygon points="16,16 17.15,18.77 16,29 14.85,18.77" fill="currentColor" opacity="0.55"></polygon>
+        <polygon points="16,16 14.85,18.77 10.34,21.66 13.23,17.15" fill="currentColor" opacity="0.55"></polygon>
+        <polygon points="16,16 13.23,17.15 3,16 13.23,14.85" fill="currentColor" opacity="0.55"></polygon>
+        <polygon points="16,16 13.23,14.85 10.34,10.34 14.85,13.23" fill="currentColor" opacity="0.55"></polygon>
+        <circle cx="16" cy="16" r="2" fill="var(--bg)" stroke="currentColor" stroke-width="1"></circle>
+      </svg>
+      <span style="font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 18px;">LoRa Mesh Map</span>
+    </a>
+    <div class="nav-links">
+      <a href="../">Home</a>
+      <a href="../map/">Live map</a>
+      <a href="../plan/">Planner</a>
+      <a href="../plan/" class="btn-plan nav-cta">Open the planner →</a>
+    </div>
+  </nav>
+
+  <header style="padding: 72px 48px 48px; display: flex; flex-direction: column; align-items: center; text-align: center; gap: 20px;">
+    <div class="card" style="display: inline-flex; align-items: center; gap: 8px; border-radius: 999px; padding: 6px 14px; font-size: 13px; color: var(--text-dim);">
+      <span style="width: 8px; height: 8px; border-radius: 50%; background: var(--meshtastic);"></span>
+      Planner guide · about 10 minutes
+    </div>
+    <h1 style="font-size: clamp(30px, 6vw, 48px); line-height: 1.12; max-width: 800px;">How to use the LoRa Planner</h1>
+    <p style="font-size: 18px; max-width: 680px; margin: 0;">
+      A step-by-step walk-through with screenshots: place a node, tell the planner about your radio, see where it reaches over real terrain,
+      and check whether one specific spot, or another node, can hear it. Nothing to install and no account.
+    </p>
+    <div style="display: flex; gap: 14px; margin-top: 6px; flex-wrap: wrap; justify-content: center;">
+      <a href="../plan/" class="btn-plan" style="font-size: 16px;">Open the planner →</a>
+      <a href="#check-a-link" class="btn-secondary" style="font-size: 16px;">Jump to “Check a link”</a>
+    </div>
+  </header>
+
+  <main>
+
+    <div class="narrow" style="display: flex; flex-direction: column; gap: 28px;">
+      <nav class="toc card" aria-label="Contents">
+        <h2>In this guide</h2>
+        <ol>
+          <li><a href="#open">Open the planner</a></li>
+          <li><a href="#first-node">Place your first node</a></li>
+          <li><a href="#node-settings">Describe the node</a></li>
+          <li><a href="#coverage">Calculate coverage</a></li>
+          <li><a href="#read">Read the result</a></li>
+          <li><a href="#more-nodes">Add more nodes</a></li>
+          <li><a href="#receiver">The receiving device and extra loss</a></li>
+          <li><a href="#check-a-link">Check a link (point to point)</a></li>
+          <li><a href="#existing">Show existing networks</a></li>
+          <li><a href="#share">Share your plan</a></li>
+          <li><a href="#help">If something looks wrong</a></li>
+          <li><a href="#words">Words you will see</a></li>
+        </ol>
+      </nav>
+
+      <div class="tip">
+        <p><strong>The short version.</strong> Put a node on the map, choose its radio and antenna, press <strong>Calculate coverage</strong>, and read the coloured area.
+        When you want a straight answer about one particular spot or another node, use <strong>Check a link</strong> instead.</p>
+      </div>
+      <p style="margin: 0; font-size: 14px;">
+        In the screenshots, the <span style="color: var(--callout); font-weight: 700;">pink numbers and boxes</span> mark the parts being explained; they are not part of the planner itself.
+        The example plan is a rooftop node in Keswick in England’s Lake District, shown on the <strong>Topo</strong> base map. Yours will look the same, just over your own area.
+      </p>
+    </div>
+
+    <!-- 1 -->
+    <section class="step narrow" id="open">
+      <h2><span class="n">Step 1</span> Open the planner</h2>
+      <p>
+        Press <strong>Open the planner</strong> on the home page. You get a map on the right and the controls on the left. Nothing is calculated until you ask, so a blank map is normal.
+        On a phone the controls sit in a panel at the bottom; use <strong>Show controls ▴</strong> to open it.
+      </p>
+      <figure>
+        <img src="img/01-start.jpg" width="1280" height="800" loading="lazy" alt="The LoRa Planner as it first opens: a world map with the Topo base map selected, a prompt to click the map to place a node, and controls on the left including Your network, Check a link and Coverage.">
+        <ol class="key">
+          <li><div><strong>The prompt</strong> Click the map to place the node you want to plan. This is the quickest way to start.</div></li>
+          <li><div><strong>Base map</strong> Streets, Satellite or Topo. <em>Topo</em> is drawn from the same elevation data the calculation uses, with contour lines, so it is the best one for judging hills. If the street map cannot load, the planner switches to Topo for you.</div></li>
+          <li><div><strong>Add at my location</strong> Your browser asks permission first. The position is used only to drop the pin in the right place.</div></li>
+        </ol>
+      </figure>
+      <p>The left-hand controls are in four sections, from top to bottom: <strong>Existing networks</strong> (nodes people already run), <strong>Your network</strong> (the nodes you are planning), <strong>Check a link</strong>, and <strong>Coverage</strong>. Click a section’s title to open or close it.</p>
+    </section>
+
+    <!-- 2 -->
+    <section class="step narrow" id="first-node">
+      <h2><span class="n">Step 2</span> Place your first node</h2>
+      <p>
+        Zoom to where the node will go and click the map, or press <strong>Add at my location</strong>. A numbered pin appears and the node gets a card under <strong>Your network</strong>.
+        Give it a name in the <strong>Name</strong> box (here, “Home”). You can have up to 10 nodes in one plan.
+      </p>
+      <figure>
+        <img src="img/02-first-node.jpg" width="1280" height="800" loading="lazy" alt="The planner after placing a node called Home: a numbered pin on the map, its card in the Your network list, and the Add node button below it.">
+        <ol class="key">
+          <li><div><strong>The pin</strong> Drag it to move the node. You can also type an exact latitude and longitude in the <strong>Location</strong> boxes below the name.</div></li>
+          <li><div><strong>The node card</strong> Shows the network, antenna height and transmit power. Click a card to select that node (its settings appear underneath); the × removes it. After you calculate, each card also shows how much area that node covers.</div></li>
+          <li><div><strong>+ Add node</strong> Adds another node (Step 6). Press <kbd>Esc</kbd> to cancel if you change your mind while placing.</div></li>
+        </ol>
+      </figure>
+    </section>
+
+    <!-- 3 -->
+    <section class="step narrow" id="node-settings">
+      <h2><span class="n">Step 3</span> Describe the node</h2>
+      <p>
+        Under <strong>Settings for Home</strong>, tell the planner what the real device will be. The radio settings must match the devices you will talk to, and the antenna and height are what shape the result.
+      </p>
+      <figure>
+        <img src="img/03-node-settings.jpg" width="1280" height="800" loading="lazy" alt="The node settings form: network switch, radio settings drop-down, quick start buttons, and boxes for transmit power, antenna gain, cable loss and height above ground.">
+        <ol class="key">
+          <li><div><strong>Network</strong> Meshtastic or MeshCore. Switching it changes the list of radio presets below.</div></li>
+          <li><div><strong>Radio settings</strong> Pick the preset your devices use (for Meshtastic, <em>Long Fast</em> is the default). <em>Custom</em> lets you enter spreading factor, bandwidth and frequency yourself. The grey box under <strong>Band</strong> shows the result, including the <em>sensitivity</em>: the weakest signal that radio can still decode (a more negative number is better).</div></li>
+          <li><div><strong>Quick start</strong> Not sure what to enter? These fill in the four boxes below with typical values: <em>Window / balcony</em> (5 m, 2 dBi antenna), <em>Rooftop node</em> (10 m, 5.8 dBi, 1 dB cable loss) and <em>Hilltop repeater</em> (15 m, 8 dBi, 1.5 dB cable loss). Change any box afterwards to match your own gear.</div></li>
+          <li><div><strong>Transmit power and antenna gain</strong> In dBm and dBi, as printed on the device and antenna.</div></li>
+          <li><div><strong>Cable loss and height above ground</strong> Cable and connector loss in dB, and how high the <em>antenna</em> is above the ground it stands on. The hill’s own height comes from the terrain data, so do not add it here.</div></li>
+        </ol>
+      </figure>
+      <div class="note"><p><strong>Check your local rules.</strong> The planner shows the radiated power (EIRP) for your settings. Legal limits differ by country and band, so check yours.</p></div>
+    </section>
+
+    <!-- 4 -->
+    <section class="step narrow" id="coverage">
+      <h2><span class="n">Step 4</span> Calculate coverage</h2>
+      <p>
+        Open the <strong>Coverage</strong> section, choose how far to look, and press the big button. The planner downloads the terrain around your node and works out the signal across it, all in your browser.
+      </p>
+      <figure>
+        <img src="img/04-coverage.jpg" width="1280" height="800" loading="lazy" alt="The planner after calculating coverage: a yellow, blue and purple overlay across the valley around the node, a colour legend on the map, and summary numbers in the sidebar.">
+        <ol class="key">
+          <li><div><strong>Range</strong> How far from each node to calculate: 5, 10, 20, 30 or 50 km. Start with 10 or 20 km. If the planner says coverage reaches the edge of the range, choose a larger one. Under it, <em>Detail</em> trades speed for accuracy (Fast, Normal, Fine) and <em>Plan for</em> chooses <em>Typical (50%)</em> or <em>Cautious (90%)</em>, which allows about 10 dB more loss and so shows less coverage.</div></li>
+          <li><div><strong>Calculate coverage</strong> The button reads <em>Calculate coverage</em> the first time. After a result exists it reads <em>Recalculate</em>, or <em>Update coverage</em> if you have changed something since.</div></li>
+          <li><div><strong>Legend</strong> The colour is how far the predicted signal is <em>above the weakest the receiver can use</em>: <span class="swatch" style="background:#7b3294"></span>Marginal 0–6 dB, <span class="swatch" style="background:#3a7bd5"></span>Fair 6–12, <span class="swatch" style="background:#2ec4b6"></span>Good 12–20, <span class="swatch" style="background:#9be15d"></span>Strong 20–30, <span class="swatch" style="background:#f9f871"></span>Very strong 30+. No colour means the model predicts no usable signal there.</div></li>
+          <li><div><strong>Summary</strong> Total area covered, the furthest reach from the node, and the strongest margin anywhere.</div></li>
+        </ol>
+      </figure>
+      <div class="note"><p><strong>Why is so much of it yellow?</strong> The model sees the shape of the ground, not trees, buildings or weather, so it is optimistic. Step 7 shows how to allow for that.</p></div>
+    </section>
+
+    <!-- 5 -->
+    <section class="step narrow" id="read">
+      <h2><span class="n">Step 5</span> Read the result</h2>
+      <p>
+        Colours are a good overview. To find out what happens at one particular place, click it.
+      </p>
+      <figure>
+        <img src="img/05-read-result.jpg" width="1280" height="800" loading="lazy" alt="The coverage map with signal lines switched on and a pop-up reading minus 123 dBm, plus 8 dB margin, 3.1 km from the node.">
+        <ol class="key">
+          <li><div><strong>Click the map</strong> A small pop-up gives the predicted signal in dBm, the margin in dB and the distance from the node. Click the pop-up to dismiss it. With <em>Show the signal as I move the pointer</em> ticked, the same figures follow your pointer without clicking.</div></li>
+          <li><div><strong>Show signal lines (dB)</strong> Draws lines where the signal crosses the edge of each colour band, labelled in dB, which makes the shape of the coverage easier to see.</div></li>
+          <li><div><strong>Overlay opacity</strong> Fade the colours to see the map underneath. The slider below it, <em>Show only where margin is at least…</em>, hides the weak areas. Setting it to 10 dB leaves only places with a comfortable safety cushion. <em>Style</em> switches between smooth colour and flat bands.</div></li>
+          <li><div><strong>Copy link to this plan</strong> See <a href="#share">Share your plan</a>.</div></li>
+        </ol>
+      </figure>
+      <div class="tip"><p><strong>What is “margin”?</strong> It is the spare signal. 0 dB means the signal is exactly as strong as the receiver needs, so any fading breaks it. About 10 dB or more leaves room for weather, foliage and a bad day.</p></div>
+    </section>
+
+    <!-- 6 -->
+    <section class="step narrow" id="more-nodes">
+      <h2><span class="n">Step 6</span> Add more nodes</h2>
+      <p>
+        Press <strong>+ Add node</strong>, then click the map where the next node goes. A new node starts with the settings of the node you had selected, so you only change what differs.
+        Here a second node, “Hill repeater”, was placed on the hillside to the north and given the <em>Hilltop repeater</em> quick start. Press <strong>Calculate coverage for 2 nodes</strong> to see both together.
+      </p>
+      <figure>
+        <img src="img/06-two-nodes.jpg" width="1280" height="800" loading="lazy" alt="Two numbered pins on the map with a combined coverage overlay, and two node cards in the sidebar that each show their own coverage area in square kilometres.">
+        <ol class="key">
+          <li><div><strong>The selected node</strong> The highlighted card is the node whose settings are showing below it. Click either card to switch.</div></li>
+          <li><div><strong>Each node’s own coverage</strong> The area that node alone covers, in km².</div></li>
+          <li><div><strong>The new pin</strong> Both nodes are on the map and both are included in the one overlay.</div></li>
+        </ol>
+      </figure>
+      <figure>
+        <img src="img/06b-view-share.jpg" width="1280" height="800" loading="lazy" alt="The lower part of the sidebar after calculating two nodes, showing the Show drop-down set to All nodes combined, the combined coverage figure, and the Copy link to this plan button.">
+        <ol class="key">
+          <li><div><strong>Show</strong> Choose <em>All nodes combined</em> or one node on its own. In the combined view each point takes the strongest signal from any node, and <em>Combined coverage</em> is the area where at least one node reaches.</div></li>
+          <li><div><strong>Copy link to this plan</strong> Copies a web address that reopens exactly this plan (see <a href="#share">Share your plan</a>).</div></li>
+        </ol>
+      </figure>
+    </section>
+
+    <!-- 7 -->
+    <section class="step narrow" id="receiver">
+      <h2><span class="n">Step 7</span> The receiving device and extra loss</h2>
+      <p>
+        Coverage means “where a device like <em>this</em> could hear your nodes”. Open <strong>The receiving device (all nodes)</strong> in the Coverage section to describe that device.
+        These settings are shared by every node in the plan.
+      </p>
+      <figure>
+        <img src="img/07-receiving-device.jpg" width="1280" height="800" loading="lazy" alt="The receiving device and environment settings opened in the sidebar: height above ground, antenna gain, cable loss, extra loss allowance, a manual sensitivity tick box, and climate and ground drop-downs.">
+        <ol class="key">
+          <li><div><strong>The receiving device</strong> Starts at a hand-held style receiver: 2 m high, 2 dBi antenna, no cable loss. Change it if you are planning for, say, a roof antenna instead.</div></li>
+          <li><div><strong>Height above ground</strong> How high the receiving antenna is. It also sets the default height of the far end of a point-to-point link (Step 8), where you can override it for that link only.</div></li>
+          <li><div><strong>Extra loss allowance</strong> The planner cannot see trees, buildings or the inside of a house. This box is how you account for them: a number of dB subtracted from every signal. There is no single right value, so try a few (for example 5, 10 and 15 dB) and watch the coverage shrink; test on air to see which matches your area.</div></li>
+          <li><div><strong>Environment</strong> <em>Climate</em> and <em>Ground</em> change how the model treats the air and the earth. The defaults suit most places; change them only if you know your area differs (for example sea water or very dry ground).</div></li>
+        </ol>
+      </figure>
+      <p style="font-size: 15px;">There is also a <strong>Set receiver sensitivity manually</strong> tick box, for when you know the real figure for your receiver and want to use it instead of the one worked out from the radio preset.</p>
+    </section>
+
+    <!-- 8 -->
+    <section class="step narrow" id="check-a-link">
+      <h2><span class="n">Step 8</span> Check a link (point to point)</h2>
+      <p>
+        Coverage asks “where can my node be heard?”. <strong>Check a link</strong> asks a narrower question: “will <em>this</em> node and <em>that</em> spot hear each other, and if not, why?”
+        It draws the ground between the two ends so you can see what is in the way.
+      </p>
+
+      <h3>8a. Choose the two ends</h3>
+      <p>A link has two ends, and each drop-down chooses one of them.</p>
+      <figure>
+        <img src="img/08-link-setup.jpg" width="1280" height="800" loading="lazy" alt="The Check a link section opened, with the From drop-down set to Home, the To drop-down set to A point on the map, a Target height above ground box set to 2 metres, and the Check this link button.">
+        <ol class="key">
+          <li><div><strong>From</strong> Your node at the first end (end <strong>A</strong>). It is always one of your planned nodes, because the planner needs that node’s power, antenna and radio settings.</div></li>
+          <li><div><strong>To</strong> The other end (end <strong>B</strong>). Choose <em>A point on the map</em>, or one of your other nodes. With only one node in your plan the only choice is a point.</div></li>
+          <li><div><strong>Target height above ground</strong> Appears when <em>To</em> is a point on the map: how high the antenna is at that far spot. It starts at the receiving-device height from Step 7, and changing it here affects only this link.</div></li>
+          <li><div><strong>Check this link</strong> Opens the link panel on the right. If you chose a point, click the map to place it.</div></li>
+        </ol>
+      </figure>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>If “To” is…</th><th>Which ways it is checked</th><th>Where the far-end settings come from</th></tr></thead>
+          <tbody>
+            <tr><td><strong>A point on the map</strong></td><td>One way: from your node to the spot.</td><td>The far end acts as a receiving device: the shared settings from Step 7, with its own <em>Target height above ground</em> set here.</td></tr>
+            <tr><td><strong>Another of your nodes</strong></td><td>Both ways, each shown separately.</td><td>That node’s own power, antenna, cable loss, radio settings and height (set on its card in Your network).</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>8b. Read the link panel</h3>
+      <p>
+        The panel appears on the right once the far end is chosen. This example checks Home to a spot 2.5 km to the south-west with a 2 m target.
+      </p>
+      <figure>
+        <img src="img/09-link-point-2m.jpg" width="1280" height="800" loading="lazy" alt="The Point-to-point link panel for Home to a target point: verdict reading Link marginal (Fresnel zone obstructed), distance 2.50 km, path loss 106.0 dB, Fresnel clear 50 percent, and a terrain profile chart. The target marker B is on the map.">
+        <ol class="key">
+          <li><div><strong>The two ends</strong> Each shows its name, its antenna height above ground and its coordinates. End B here is “Target”, 2 m above ground.</div></li>
+          <li><div><strong>The verdict</strong> A plain-language summary. <span class="swatch" style="background:#1f9d55"></span><em>Looks good</em> needs a margin of 10 dB or more in every direction, a clear line of sight, and at least 60% of the first Fresnel zone clear. <span class="swatch" style="background:#e6a100"></span><em>Marginal</em> means it may work but one of those fails, and the headline says which. <span class="swatch" style="background:#d93a17"></span><em>Unlikely</em> means the signal is below what the receiver needs. The link line on the map takes the same colour.</div></li>
+          <li><div><strong>The profile chart</strong> A side-on slice of the ground between the ends. The <em>brown</em> shape is the terrain, the <em>solid blue line</em> is the straight line of sight, and the <em>dashed oval</em> is the first Fresnel zone. The ground is bent upwards in the middle to allow for the curve of the earth. Move along the chart with the mouse, a finger or the arrow keys to read any point; the matching spot is marked on the map.</div></li>
+          <li><div><strong>Marker B</strong> Drag it to try another spot and the panel updates. If the ground blocks the line of sight, a red dot on the map shows where.</div></li>
+        </ol>
+      </figure>
+      <p>The numbers above the chart:</p>
+      <dl class="glossary">
+        <dt>Distance</dt><dd>Straight-line distance between the ends.</dd>
+        <dt>Path loss</dt><dd>How much signal is lost on the way, in dB. Lower is better. It comes from the same Longley-Rice (ITM) model as the coverage map.</dd>
+        <dt>Fresnel clear</dt><dd>How much of the first Fresnel zone is free of ground, at its tightest point. About 60% or more is the usual aim.</dd>
+        <dt>Signal at receiver</dt><dd>The predicted signal strength at the far end, in dBm.</dd>
+        <dt>Receiver needs</dt><dd>The weakest signal the receiver can decode (its sensitivity).</dd>
+        <dt>Margin</dt><dd>The difference between the two: the spare signal. Green when positive.</dd>
+      </dl>
+      <div class="note"><p><strong>A strong signal can still be “marginal”.</strong> In this example the margin is a healthy +54 dB, yet the verdict is marginal because the ground cuts into half of the Fresnel zone. Real signals fade, so a path with an obstructed zone can be unreliable even when the numbers look generous.</p></div>
+
+      <h3>8c. Change the target’s height</h3>
+      <p>
+        The height of the far end can make the difference. Here is the same spot with the target raised from 2 m to 10 m, as if the antenna were on a mast or a roof. Type the new height into <strong>Target height above ground</strong>; the panel recalculates straight away.
+      </p>
+      <figure>
+        <img src="img/10-link-point-10m.jpg" width="1280" height="800" loading="lazy" alt="The same link with the target height set to 10 metres: verdict now reads Link looks good, Fresnel clear 89 percent, and the chart shows the Fresnel zone clear of the ground. The link line on the map is green.">
+        <ol class="key">
+          <li><div><strong>Target height above ground</strong> Changed from 2 to 10 m. Allowed values are 0.5 to 100 m.</div></li>
+          <li><div><strong>End B</strong> Now reads “10 m above ground”.</div></li>
+          <li><div><strong>The verdict</strong> Changed from marginal to <em>Link looks good</em>. Fresnel clear went from 50% to 89%, and path loss fell from 106.0 dB to 101.9 dB.</div></li>
+          <li><div><strong>The chart</strong> The oval now sits clear of the ground at the far end, and the link line on the map turns green.</div></li>
+        </ol>
+      </figure>
+      <p>The height of end A is not set here: it is the antenna height of the node you chose in <strong>From</strong>, so change it on that node’s card under Your network.</p>
+
+      <h3>8d. Link two of your nodes</h3>
+      <p>Change <strong>To</strong> from <em>A point on the map</em> to one of your other nodes and the panel checks the link both ways.</p>
+      <figure>
+        <img src="img/11-link-nodes.jpg" width="1280" height="800" loading="lazy" alt="A link between Home and Hill repeater: verdict Link looks good, 3.32 km, and two separate result cards, Home to Hill repeater and Hill repeater to Home, each with signal at receiver, receiver needs and margin, above a terrain profile chart.">
+        <ol class="key">
+          <li><div><strong>To</strong> Now set to the other node (“Hill repeater”). Its height, 15 m here, comes from its own card.</div></li>
+          <li><div><strong>First direction</strong> Home transmitting, Hill repeater receiving.</div></li>
+          <li><div><strong>Second direction</strong> The reverse. The two usually match, but they differ when the nodes have different transmit power or antennas. The verdict uses the weaker of the two.</div></li>
+          <li><div><strong>The chart</strong> The path between the two nodes. Here the line of sight is clear all the way up to the hill.</div></li>
+        </ol>
+      </figure>
+      <div class="note"><p><strong>Different radio settings.</strong> Two nodes can only hear each other if their spreading factor, bandwidth and frequency match. If they do not, the panel says so and the link is reported as not possible.</p></div>
+      <p>Press <strong>Close link analysis</strong> (or <strong>Close</strong> at the top of the panel) when you are done. Removing a node that is part of the link closes it too.</p>
+    </section>
+
+    <!-- 9 -->
+    <section class="step narrow" id="existing">
+      <h2><span class="n">Step 9</span> Show existing networks</h2>
+      <p>
+        The <strong>Existing networks</strong> section, at the top of the controls, puts nodes that people already run on the same map, so you can see what your new node would join.
+      </p>
+      <ul style="margin: 0; padding-left: 22px;">
+        <li>Type to search and <strong>pick a country</strong>; you can add more than one.</li>
+        <li>Tick or untick <strong>MeshCore</strong> and <strong>Meshtastic</strong> to choose which networks appear, and use <strong>Filter by device role</strong> to narrow it further.</li>
+        <li>Click a node on the map for its name, network, role and when it was last seen. <strong>Plan a node here</strong> in that pop-up starts one of your own nodes at the same spot.</li>
+      </ul>
+      <p>The data comes from the community MeshCore and Meshtastic maps and is refreshed about every 30 minutes. It only decorates the map: it does not change your coverage result.</p>
+    </section>
+
+    <!-- 10 -->
+    <section class="step narrow" id="share">
+      <h2><span class="n">Step 10</span> Share your plan</h2>
+      <p>
+        <strong>Copy link to this plan</strong> (shown under the coverage figures once you have a result) copies the page address. The address holds your nodes, their settings, the shared settings and any open link, so pasting it into a message or opening it on another device recreates the same plan. Nothing is stored on a server.
+        If your browser blocks copying, the button changes to <em>Copy the address bar</em>; copy the address from the top of the window instead.
+      </p>
+      <p>
+        <strong>Show assumptions</strong>, next to it, lists the figures behind the result for each node (radiated power, receiver sensitivity and the largest path loss the link can tolerate) and the model settings used.
+      </p>
+    </section>
+
+    <!-- 11 -->
+    <section class="step narrow" id="help">
+      <h2>If something looks wrong</h2>
+      <div>
+        <details class="faq-item" name="help">
+          <summary>The Calculate button is greyed out<span class="chev">▾</span></summary>
+          <p>It needs at least one node. Click the map or press <em>Add at my location</em> first.</p>
+        </details>
+        <details class="faq-item" name="help">
+          <summary>The coverage looks too good to be true<span class="chev">▾</span></summary>
+          <p>The model knows the ground but not trees, buildings or interference. Add an <em>extra loss allowance</em> (Step 7), switch <em>Plan for</em> to <em>Cautious (90%)</em>, or raise the <em>Show only where margin is at least</em> slider. Then test on air.</p>
+        </details>
+        <details class="faq-item" name="help">
+          <summary>I cannot see the “Target height above ground” box<span class="chev">▾</span></summary>
+          <p>It only appears when <strong>To</strong> is set to <em>A point on the map</em>. When the far end is another node, that node’s own height is used; change it on its card under Your network.</p>
+        </details>
+        <details class="faq-item" name="help">
+          <summary>The link panel says it is waiting for the other end<span class="chev">▾</span></summary>
+          <p>With <em>A point on the map</em> chosen, click the map to place the far end. You can drag it afterwards. A banner on the map reminds you, with a Cancel button.</p>
+        </details>
+        <details class="faq-item" name="help">
+          <summary>It says some terrain was unavailable<span class="chev">▾</span></summary>
+          <p>The elevation tiles for part of the area did not load, and the missing ground was treated as sea level, so the result may be too optimistic there. Try again, or recalculate in a moment.</p>
+        </details>
+        <details class="faq-item" name="help">
+          <summary>The street map did not load<span class="chev">▾</span></summary>
+          <p>The planner switches to the Topo map automatically. You can also choose Streets, Satellite or Topo yourself at the top of the map.</p>
+        </details>
+        <details class="faq-item" name="help">
+          <summary>Two nodes “cannot hear each other”<span class="chev">▾</span></summary>
+          <p>Their radio settings differ (spreading factor, bandwidth or frequency). Give them the same preset, or accept that they are on different networks.</p>
+        </details>
+      </div>
+      <div class="note"><p><strong>An estimate, not a promise.</strong> The planner models terrain only. It cannot see buildings, trees, weather, interference or how an antenna is actually mounted. Use it to decide where to try, then test before you commit to a deployment.</p></div>
+    </section>
+
+    <!-- 12 -->
+    <section class="step narrow" id="words">
+      <h2>Words you will see</h2>
+      <dl class="glossary">
+        <dt>dBm</dt><dd>Signal strength. More negative is weaker: −90 dBm is stronger than −120 dBm.</dd>
+        <dt>dB</dt><dd>A difference between two signal strengths, such as a margin or a loss.</dd>
+        <dt>dBi</dt><dd>Antenna gain: how much an antenna focuses the signal compared with an ideal one.</dd>
+        <dt>Sensitivity</dt><dd>The weakest signal a receiver can still decode. It depends on the radio settings, such as spreading factor and bandwidth.</dd>
+        <dt>Margin</dt><dd>Signal above sensitivity: the spare signal. More is safer.</dd>
+        <dt>Path loss</dt><dd>The signal lost between the two antennas, mostly from distance and terrain.</dd>
+        <dt>Line of sight</dt><dd>Whether a straight line between the antennas clears the ground.</dd>
+        <dt>Fresnel zone</dt><dd>An egg-shaped region around the line of sight. Radio waves spread out, so ground inside it weakens the signal even when the straight line is clear. Keeping about 60% of the first zone clear is the usual aim.</dd>
+        <dt>Longley-Rice (ITM)</dt><dd>The propagation model from NTIA that the planner uses for terrain-based path loss.</dd>
+        <dt>EIRP</dt><dd>The power actually radiated: transmit power plus antenna gain minus cable loss.</dd>
+      </dl>
+    </section>
+
+    <div class="narrow card" style="padding: 32px; display: flex; flex-direction: column; align-items: center; text-align: center; gap: 16px;">
+      <h2 style="font-size: 26px;">Ready to try it?</h2>
+      <p style="margin: 0; max-width: 560px;">Open the planner, drop a node where you are thinking of putting one, and see where it reaches.</p>
+      <div style="display: flex; gap: 14px; flex-wrap: wrap; justify-content: center;">
+        <a href="../plan/" class="btn-plan" style="font-size: 16px;">Open the planner →</a>
+        <a href="../" class="btn-secondary" style="font-size: 16px;">Back to the home page</a>
+      </div>
+    </div>
+
+  </main>
+
+  <footer style="border-top: 1px solid var(--border); padding: 32px 48px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 16px;">
+    <span style="font-size: 13px; color: var(--text-dim);">LoRa Mesh Map — community data from the public MeshCore and Meshtastic networks.</span>
+    <div style="display: flex; gap: 20px;">
+      <a href="../map/" style="text-decoration: none; font-size: 13px; color: var(--text-dim);">Open the map</a>
+      <a href="../plan/" style="text-decoration: none; font-size: 13px; color: var(--text-dim);">Planner</a>
+      <a href="../" style="text-decoration: none; font-size: 13px; color: var(--text-dim);">Home</a>
+    </div>
+  </footer>
+
+</div>
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "HowTo",
+  "name": "How to use the LoRa Planner",
+  "description": "Plan MeshCore or Meshtastic node coverage over real terrain and check a point-to-point link, step by step.",
+  "step": [
+    { "@type": "HowToStep", "name": "Open the planner", "url": "https://stuff-n-that.github.io/LoRa_mapping/guide/#open" },
+    { "@type": "HowToStep", "name": "Place your first node", "url": "https://stuff-n-that.github.io/LoRa_mapping/guide/#first-node" },
+    { "@type": "HowToStep", "name": "Describe the node", "url": "https://stuff-n-that.github.io/LoRa_mapping/guide/#node-settings" },
+    { "@type": "HowToStep", "name": "Calculate coverage", "url": "https://stuff-n-that.github.io/LoRa_mapping/guide/#coverage" },
+    { "@type": "HowToStep", "name": "Read the result", "url": "https://stuff-n-that.github.io/LoRa_mapping/guide/#read" },
+    { "@type": "HowToStep", "name": "Add more nodes", "url": "https://stuff-n-that.github.io/LoRa_mapping/guide/#more-nodes" },
+    { "@type": "HowToStep", "name": "Set the receiving device and extra loss", "url": "https://stuff-n-that.github.io/LoRa_mapping/guide/#receiver" },
+    { "@type": "HowToStep", "name": "Check a point-to-point link", "url": "https://stuff-n-that.github.io/LoRa_mapping/guide/#check-a-link" },
+    { "@type": "HowToStep", "name": "Show existing networks", "url": "https://stuff-n-that.github.io/LoRa_mapping/guide/#existing" },
+    { "@type": "HowToStep", "name": "Share your plan", "url": "https://stuff-n-that.github.io/LoRa_mapping/guide/#share" }
+  ]
+}
+</script>
+
+</body>
+</html>
