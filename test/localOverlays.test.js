@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { compareOverlays, droppedOverlayFile, parseLocalOverlay, readOverlayFile, MAX_FILE_BYTES } from '../src/utils/localOverlays.js'
+import { compareOverlays, droppedOverlayFile, identity, meshtasticNodeId, parseLocalOverlay, readOverlayFile, MAX_FILE_BYTES } from '../src/utils/localOverlays.js'
 
 const keyA = 'a'.repeat(64), keyB = 'b'.repeat(64), keyC = 'c'.repeat(64)
 const contact = (key, name, lat = 51.5, lon = -0.1) => ({ public_key: key, adv_name: name, adv_lat: lat, adv_lon: lon, type: 2 })
@@ -105,4 +105,76 @@ test('disabled layers do not affect matches; equal names and different networks 
   assert.equal(compareOverlays(pub, [layer]).counts.localOnly, 0)
   assert.equal(compareOverlays(pub, [{ ...layer, enabled: true }]).counts.both, 0)
   assert.equal(compareOverlays([{ ...pub[0], publicKey: keyA, network: 'meshtastic' }], [{ ...layer, enabled: true }]).counts.both, 0)
+})
+
+test('Meshtastic IDs normalize unsigned numbers and explicit hex without ambiguous bare hex', () => {
+  assert.equal(meshtasticNodeId(305419896), '!12345678')
+  assert.equal(meshtasticNodeId('305419896'), '!12345678')
+  assert.equal(meshtasticNodeId('!ABCDEF01'), '!abcdef01')
+  assert.equal(meshtasticNodeId('0x1234'), '!00001234')
+  assert.equal(meshtasticNodeId(0x80000000), '!80000000')
+  for (const bad of [-1, 0x100000000, 12.5, 'abcdef01', {}, null]) assert.equal(meshtasticNodeId(bad), null)
+})
+
+test('imports native Meshtastic node JSON, degree and fixed-point positions, and both role representations', () => {
+  const result = parse({ network: 'meshtastic', captured_at_utc: '2026-01-01T12:00:00Z', my_info: { myNodeNum: 305419896 }, nodes: {
+    '!12345678': { num: 305419896, user: { id: '!12345678', longName: 'Local radio', role: 'CLIENT_BASE', privateKey: 'SECRET' }, position: { latitude: 51.5, longitude: -0.1 }, lastHeard: 1767268800, hopsAway: 0, snr: 5.5, viaMqtt: true },
+    '!00000002': { num: 2, user: { shortName: 'RPTR', role: 2 }, position: { latitudeI: 520000000, longitudeI: -20000000 } },
+  }, security: { privateKey: 'SECRET' } })
+  assert.equal(result.format, 'Meshtastic snapshot')
+  assert.equal(result.name, 'Local radio')
+  assert.equal(result.nodes[0].roleCategory, 'client')
+  assert.equal(result.nodes[0].lastHeardAt, 1767268800)
+  assert.equal(result.nodes[0].advertisedAt, null)
+  assert.equal(result.nodes[0].hopsAway, 0)
+  assert.equal(result.nodes[0].viaMqtt, true)
+  assert.equal(result.nodes[1].lat, 52)
+  assert.equal(result.nodes[1].lng, -2)
+  assert.equal(result.nodes[1].roleCategory, 'repeater')
+  assert.equal(JSON.stringify(result).includes('SECRET'), false)
+})
+
+test('supports raw node dictionaries, nodesById, arrays, and snake-case fixed-point coordinates', () => {
+  const node = { num: 2, user: { id: '!00000002', role: 'TRACKER' }, position: { latitude_i: 515000000, longitude_i: -1000000 } }
+  for (const data of [{ '!00000002': node }, { nodesById: { '!00000002': node } }, { nodes: [node] }]) {
+    const result = parse(data)
+    assert.equal(result.nodes[0].nodeId, '!00000002')
+    assert.equal(result.nodes[0].lat, 51.5)
+    assert.equal(result.nodes[0].roleCategory, 'sensor')
+  }
+  const withoutId = parse({ network: 'meshtastic', nodes: [{ user: { longName: 'Unknown ID' }, position: { latitude: 51.5, longitude: -0.1 } }] })
+  assert.equal(withoutId.nodes[0].nodeId, null)
+  assert.equal(identity(withoutId.nodes[0]), null) // An array index is not a radio ID.
+})
+
+test('positionless Meshtastic export is recognized and explains why no marker can be added', () => {
+  // Same field structure as a hardware export, using synthetic identities only.
+  const data = { format: 'meshtastic-node-snapshot-v1', network: 'meshtastic', my_info: { myNodeNum: 1 }, nodes: {
+    '!00000001': { num: 1, user: { longName: 'Test radio' }, deviceMetrics: { batteryLevel: 101 } },
+    '!00000002': { num: 2, user: { longName: 'Peer' }, lastHeard: 123, hopsAway: 0 },
+  } }
+  assert.throws(() => parse(data), /Meshtastic snapshot \(2 without coordinates; 0 invalid\)/)
+})
+
+test('Meshtastic positions are validated without guessing, coercion or assigned coordinates', () => {
+  const result = parse({ network: 'meshtastic', nodes: {
+    a: { num: 1, position: { latitude: 0, longitude: -0.1 } },
+    b: { num: 2, position: { latitudeI: 2147483647, longitudeI: 0 } },
+    c: { num: 3, position: { latitude: '51.5', longitude: 0 } },
+    d: { num: 4, position: { latitudeI: 0, longitudeI: 0 } },
+  } })
+  assert.equal(result.nodes.length, 1)
+  assert.equal(result.report.invalid, 2)
+  assert.equal(result.report.noPosition, 1)
+  assert.equal(result.nodes[0].roleRaw, 'CLIENT')
+})
+
+test('Meshtastic node IDs match decimal public-feed IDs and GeoJSON identities independently of MeshCore', () => {
+  const layer = { ...parse({ nodes: { '!12345678': { num: 305419896, user: { longName: 'Old name' }, position: { latitude: 51.5, longitude: -0.1 } } } }), enabled: true }
+  const pub = [{ id: 'snapshot-meshtastic-live-305419896', network: 'meshtastic', name: 'New name', lat: 51.5, lng: -0.1 }]
+  assert.equal(compareOverlays(pub, [layer]).counts.both, 1)
+  const geo = parse({ type: 'FeatureCollection', features: [point({ network: 'meshtastic', nodeId: '!12345678', role: 'ROUTER' })] })
+  assert.equal(identity(geo.nodes[0]), identity(pub[0]))
+  assert.equal(geo.nodes[0].roleCategory, 'repeater')
+  assert.equal(compareOverlays([{ ...pub[0], network: 'meshcore' }], [layer]).counts.both, 0)
 })

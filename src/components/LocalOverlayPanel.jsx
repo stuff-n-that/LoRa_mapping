@@ -13,7 +13,7 @@ export default function LocalOverlayPanel({ layers, onChange, onZoom, counts, vi
   const [error, setError] = useState('')
   const [dragging, setDragging] = useState(false)
   const total = layers.reduce((sum, l) => sum + l.nodes.length, 0)
-  const summary = layers.length ? `${layers.length} ${layers.length === 1 ? 'file' : 'files'} · ${total.toLocaleString()} positions` : 'none imported'
+  const summary = layers.length ? `${layers.length} ${layers.length === 1 ? 'file' : 'files'} · ${total.toLocaleString()} ${total === 1 ? 'position' : 'positions'}` : 'none imported'
 
   function choose(id = null) {
     replacing.current = id
@@ -37,7 +37,7 @@ export default function LocalOverlayPanel({ layers, onChange, onZoom, counts, vi
       const layer = { ...parsed, id: previous?.id || crypto.randomUUID(), enabled: previous?.enabled ?? true, color: previous?.color || OVERLAY_COLORS[layers.length % OVERLAY_COLORS.length] }
       onChange(previous ? layers.map(l => l.id === previous.id ? layer : l) : [...layers, layer])
       if (layers.length === 0) onZoom(layer)
-      const message = `${parsed.nodes.length} positions imported · ${parsed.report.noPosition} without coordinates · ${parsed.report.invalid} invalid${parsed.report.duplicates ? ` · ${parsed.report.duplicates} duplicates` : ''}.`
+      const message = `${parsed.nodes.length} ${parsed.nodes.length === 1 ? 'position' : 'positions'} imported · ${parsed.report.noPosition} without coordinates · ${parsed.report.invalid} invalid${parsed.report.duplicates ? ` · ${parsed.report.duplicates} duplicates` : ''}.`
       setNotice(message)
       onViewChange('all')
       setCollapsed(true)
@@ -89,7 +89,7 @@ export default function LocalOverlayPanel({ layers, onChange, onZoom, counts, vi
           <span className="overlay-drop-browse">{busy ? 'Please wait' : 'Browse files'}</span>
         </button>
       </div>
-      <p className="overlay-note">MeshCore JSON or point GeoJSON · up to 5 MB. Files stay in this browser tab and disappear on refresh.</p>
+      <p className="overlay-note">MeshCore/Meshtastic JSON or point GeoJSON · up to 5 MB. Files stay in this browser tab and disappear on refresh.</p>
       <div className="overlay-list">
         {layers.map(layer => <div className="overlay-card" key={layer.id}>
           <div className="overlay-row">
@@ -117,7 +117,7 @@ export default function LocalOverlayPanel({ layers, onChange, onZoom, counts, vi
           <option value="all">All sources</option><option value="both">Both sources ({counts.both})</option>
           <option value="local-only">Local only ({counts.localOnly})</option><option value="public-only">Public only ({counts.publicOnly})</option>
         </select>
-        <p className="overlay-note">{publicCount ? 'Matches use full MeshCore public keys in the loaded regions.' : 'Select a public node-data region to compare.'} Counts use enabled layers and the node-type filter. Other identities appear in All sources only. Public-only does not mean unheard or offline.</p>
+        <p className="overlay-note">{publicCount ? 'Matches use MeshCore public keys or Meshtastic node IDs in loaded regions.' : 'Select a public node-data region to compare.'} Counts use enabled layers and the node-type filter. Unsupported identities appear in All sources only. Public-only does not mean unheard or offline.</p>
         <p className="overlay-note">Solid colour: local only or unmatchable. Ring: both sources. Dashed line: positions differ by over 100 m. Stored contacts do not confirm current reachability.</p>
       </div>}
     </CollapsibleSection>

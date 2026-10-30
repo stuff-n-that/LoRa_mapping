@@ -23,7 +23,13 @@ export default function LocalOverlayMap({ layers, zoomRequest }) {
           <p>{node.comparison === 'both' ? 'Both sources' : node.comparison === 'local-only' ? 'Local only in loaded public data' : 'No supported identity for comparison'}</p>
           {node.publicMatch && <div>Public name: {node.publicMatch.name}<br />Position difference: {Math.round(node.positionDifference).toLocaleString()} m</div>}
           <div>Snapshot: {layer.capturedAt ? new Date(layer.capturedAt).toLocaleString() : 'not supplied'}</div>
-          <div>Advertised time: {advertisedTime(node.advertisedAt)}</div>
+          {node.network === 'meshtastic' ? <>
+            <div>Node ID: {node.nodeId || 'not supplied'}</div>
+            <div>Last heard (stored): {advertisedTime(node.lastHeardAt)}</div>
+            {node.hopsAway !== null && <div>Stored hops: {node.hopsAway}</div>}
+            {node.snr !== null && <div>Stored SNR: {node.snr} dB</div>}
+            {node.viaMqtt && <div>Record marked as received via MQTT</div>}
+          </> : <div>Advertised time: {advertisedTime(node.advertisedAt)}</div>}
           <p className="overlay-popup-note">Stored contact, not proof of current reachability. Advertised clocks may be inaccurate.</p>
         </div></Popup>
       </CircleMarker>
