@@ -89,7 +89,7 @@ export default function LocalOverlayPanel({ layers, onChange, onZoom, counts, vi
           <span className="overlay-drop-browse">{busy ? 'Please wait' : 'Browse files'}</span>
         </button>
       </div>
-      <p className="overlay-note">MeshCore snapshot JSON or GeoJSON · up to 5 MB. Files stay in this browser tab and disappear on refresh.</p>
+      <p className="overlay-note">MeshCore JSON or point GeoJSON · up to 5 MB. Files stay in this browser tab and disappear on refresh.</p>
       <div className="overlay-list">
         {layers.map(layer => <div className="overlay-card" key={layer.id}>
           <div className="overlay-row">
