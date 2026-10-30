@@ -4,6 +4,7 @@ import MarkerClusterGroup from 'react-leaflet-cluster'
 import { nodeIcon } from '../utils/icons'
 import MeasureTools from './MeasureTools'
 import { plannerUrl } from '../utils/plannerLink'
+import LocalOverlayMap from './LocalOverlayMap'
 
 // Base layer selection now lives in MapLayersPanel (styled to match the
 // rest of the app) instead of Leaflet's own default-styled LayersControl —
@@ -80,6 +81,8 @@ export default function MapView({
   measureMode,
   onMeasureChange,
   plannerRegions,
+  localOverlays,
+  overlayZoom,
 }) {
   const meshcoreNodes = useMemo(() => nodes.filter((n) => n.network === 'meshcore'), [nodes])
   const meshtasticNodes = useMemo(() => nodes.filter((n) => n.network === 'meshtastic'), [nodes])
@@ -91,6 +94,7 @@ export default function MapView({
       zoom={2}
       minZoom={2}
       worldCopyJump
+      preferCanvas
       style={{ height: '100%', width: '100%' }}
       zoomControl={false}
     >
@@ -121,6 +125,7 @@ export default function MapView({
       )}
 
       <MeasureTools mode={measureMode} onChange={onMeasureChange} />
+      <LocalOverlayMap layers={localOverlays} zoomRequest={overlayZoom} />
     </MapContainer>
   )
 }

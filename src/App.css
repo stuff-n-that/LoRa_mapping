@@ -123,6 +123,53 @@
   margin-top: 8px;
 }
 
+.panel-body[hidden] { display: none; }
+.local-overlays { border-top: 1px solid rgba(255,255,255,.14); padding-top: 10px; margin-top: 8px; max-width: 360px; }
+.local-overlays .panel-header { min-height: 40px; }
+.overlay-note, .overlay-notice, .overlay-error { font-size: 12px; line-height: 1.45; margin: 6px 0; overflow-wrap: anywhere; }
+.overlay-note { opacity: .7; }
+.overlay-notice { color: #bce6be; }
+.overlay-error { color: #ffb1b1; }
+.overlay-button, .overlay-comparison select { border: 1px solid rgba(255,255,255,.25); background: #17171a; color: #f2f2f2; border-radius: 6px; padding: 8px 10px; min-height: 44px; font: inherit; font-size: 13px; cursor: pointer; }
+.overlay-button:disabled { opacity: .5; cursor: wait; }
+.overlay-import { width: 100%; }
+.overlay-dropzone { border: 1px dashed rgba(255,179,71,.65); border-radius: 8px; transition: background .15s, border-color .15s; }
+.overlay-dropzone .overlay-import { border: 0; background: transparent; min-height: 76px; }
+.overlay-dropzone.is-dragging { background: rgba(255,179,71,.16); border-color: #ffb347; outline: 2px solid rgba(255,179,71,.3); }
+.overlay-drop-desktop, .overlay-drop-browse { display: block; }
+.overlay-drop-desktop { font-weight: 700; margin-bottom: 5px; }
+.overlay-drop-browse { font-size: 12px; }
+.overlay-dropzone:focus-within { outline: 2px solid #3aa0ff; outline-offset: 2px; }
+@media (hover: none) and (pointer: coarse) {
+  .overlay-drop-desktop { display: none; }
+  .overlay-dropzone .overlay-import { min-height: 48px; }
+}
+.overlay-list { max-height: 32dvh; overflow-y: auto; overscroll-behavior: contain; }
+.overlay-card { padding: 9px 0; border-bottom: 1px solid rgba(255,255,255,.12); }
+.overlay-row, .overlay-toggle { display: flex; align-items: center; gap: 8px; }
+.overlay-toggle { flex: 1; min-width: 0; min-height: 44px; cursor: pointer; }
+.overlay-toggle span { overflow-wrap: anywhere; }
+.overlay-toggle input { width: 18px; height: 18px; flex-shrink: 0; }
+.overlay-row input[type=color] { width: 44px; height: 44px; padding: 4px; flex-shrink: 0; border: 1px solid rgba(255,255,255,.2); border-radius: 6px; background: transparent; cursor: pointer; }
+.overlay-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+.overlay-actions > button { flex: 1; }
+.overlay-details { font-size: 12px; line-height: 1.5; margin-top: 4px; }
+.overlay-details summary { min-height: 44px; display: flex; align-items: center; cursor: pointer; text-decoration: underline; }
+.overlay-details ul { padding-left: 20px; overflow-wrap: anywhere; }
+.overlay-comparison { margin-top: 10px; font-size: 12px; }
+.overlay-comparison label { display: block; margin: 6px 0; }
+.overlay-comparison select { width: 100%; }
+.overlay-popup { min-width: 200px; max-width: 260px; overflow-wrap: anywhere; line-height: 1.5; }
+.overlay-popup-note { font-size: 11px; opacity: .75; }
+.overlay-toast { position:absolute; bottom:24px; left:10px; z-index:1000; display:flex; align-items:center; max-width:min(420px, calc(100vw - 75px)); padding:6px 8px 6px 12px; gap:8px; border:1px solid #887042; border-radius:8px; background:#1b1b1f; color:#f2f2f2; font-size:12px; box-shadow:0 2px 12px #0005; }
+.overlay-toast button { min-width:44px; min-height:44px; border:0; background:transparent; color:inherit; font-size:22px; cursor:pointer; }
+@media(max-width: 520px) {
+  .local-overlays { max-width: none; }
+  .panels-drawer { max-height: 62dvh; overflow-y: auto; overscroll-behavior: contain; flex-shrink: 0; }
+  .panel-header { min-height: 44px; }
+  .panel-header-title { min-width: 0; overflow-wrap: anywhere; }
+}
+
 .region-chips {
   display: flex;
   flex-wrap: wrap;
