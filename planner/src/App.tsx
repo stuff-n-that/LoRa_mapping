@@ -210,7 +210,7 @@ export default function App() {
   const pickingTarget = linkWaiting === 'pick-target'
   const setLinkTarget = useCallback(
     (position: LatLng) =>
-      setSettings((s) => (s.link && s.link.to.kind === 'point' ? { ...s, link: { ...s.link, to: { kind: 'point', position } } } : s)),
+      setSettings((s) => (s.link && s.link.to.kind === 'point' ? { ...s, link: { ...s.link, to: { ...s.link.to, position } } } : s)),
     [],
   )
   const linkOnMap: LinkOnMap | null = useMemo(() => {
@@ -366,7 +366,7 @@ export default function App() {
             locationError={locationError}
             areas={areas}
           />
-          <LinkSetup nodes={settings.nodes} link={settings.link} defaultFromId={selected?.id ?? null} onChange={setLink} />
+          <LinkSetup nodes={settings.nodes} link={settings.link} defaultFromId={selected?.id ?? null} defaultTargetHeightM={settings.hRxM} onChange={setLink} />
           <ResultPanel
             settings={settings}
             onChange={patch}

@@ -29,6 +29,16 @@ describe('building a link', () => {
     expect(r.plan.mismatch).toBeNull()
   })
 
+  it('a point target uses its own height when the link sets one', () => {
+    const to = { kind: 'point' as const, position: { lat: 51.6, lng: 0 } }
+    const own = buildLinkPlan(plan({ hRxM: 2, link: { from: 'n1', to: { ...to, heightM: 12 } } }))
+    const shared = buildLinkPlan(plan({ hRxM: 2, link: { from: 'n1', to } }))
+    if (!own.ok || !shared.ok) throw new Error('expected a plan')
+    expect(own.plan.b.heightM).toBe(12)
+    expect(shared.plan.b.heightM).toBe(2)
+    expect(linkPlanKey(own.plan)).not.toBe(linkPlanKey(shared.plan))
+  })
+
   it('a node to a node runs both ways, each with its own power, antenna and sensitivity', () => {
     const r = buildLinkPlan(plan({ link: { from: 'n1', to: { kind: 'node', id: 'n2' } } }))
     if (!r.ok) throw new Error('expected a plan')

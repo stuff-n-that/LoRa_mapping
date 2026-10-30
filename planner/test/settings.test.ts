@@ -235,6 +235,17 @@ describe('link in the URL', () => {
     expect(parseSettings(toHash(unset)).link).toEqual(unset.link)
   })
 
+  it('keeps the target height of a point, placed or not, and clamps a wild one', () => {
+    const placed = plan(three, { link: { from: 'n2', to: { kind: 'point', position: offset(3000, 3000), heightM: 7.5 } } })
+    expect(toHash(placed)).toMatch(/lk=2:[-\d.]+,[-\d.]+:7\.5/)
+    expect(parseSettings(toHash(placed)).link).toEqual(placed.link)
+    const unset = plan(three, { link: { from: 'n2', to: { kind: 'point', position: null, heightM: 4 } } })
+    expect(toHash(unset)).toContain('lk=2::4')
+    expect(parseSettings(toHash(unset)).link).toEqual(unset.link)
+    expect(parseSettings('n=10,20&n=11,21&lk=1::900').link).toEqual({ from: 'n1', to: { kind: 'point', position: null, heightM: 100 } })
+    expect(parseSettings('n=10,20&n=11,21&lk=1::abc').link).toEqual({ from: 'n1', to: { kind: 'point', position: null } })
+  })
+
   it('works with the original one-node link format too', () => {
     const s = plan([a], { link: { from: 'n1', to: { kind: 'point', position: offset(2000, 0) } } })
     const h = toHash(s)

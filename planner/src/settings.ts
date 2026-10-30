@@ -76,7 +76,12 @@ export const NODE_DEFAULTS: Omit<PlannedNode, 'id' | 'name' | 'position'> = {
 }
 
 /** What a link analysis connects: a planned node to another node, or to a point on the map. */
-export type LinkTarget = { kind: 'node'; id: string } | { kind: 'point'; position: LatLng | null }
+export type LinkTarget =
+  | { kind: 'node'; id: string }
+  /** `heightM` is the target antenna's height above ground; unset means the shared "receiving device" height. */
+  | { kind: 'point'; position: LatLng | null; heightM?: number }
+
+export const TARGET_HEIGHT_RANGE = { min: 0.5, max: 100 } as const
 
 export interface LinkSpec {
   /** Id of the node at one end. */
@@ -343,21 +348,25 @@ function nodeFromFields(f: (string | undefined)[], index: number): PlannedNode |
 /**
  * A link is written lk=<from>:<to>, with nodes counted from 1 in plan order: "1:2" is node 1 to
  * node 2, "1:54.5,-3.0" is node 1 to a point, and "1:" is node 1 to a target not yet placed.
+ * A point can carry its antenna height above ground as a third part: "1:54.5,-3.0:5", "1::5".
  */
 function parseLink(raw: string | null, nodes: PlannedNode[]): LinkSpec | null {
   if (!raw) return null
-  const [fromRaw, toRaw] = raw.split(':')
+  const [fromRaw, toRaw, heightRaw] = raw.split(':')
   const fromIndex = /^\d+$/.test(fromRaw ?? '') ? Number(fromRaw) : 0
   const from = nodes[fromIndex - 1]
   if (!from || toRaw === undefined) return null
-  if (toRaw === '') return { from: from.id, to: { kind: 'point', position: null } }
+  const { min, max } = TARGET_HEIGHT_RANGE
+  const h = heightRaw !== undefined && heightRaw !== '' && Number.isFinite(Number(heightRaw)) ? Math.min(max, Math.max(min, Number(heightRaw))) : undefined
+  const withHeight = h === undefined ? {} : { heightM: h }
+  if (toRaw === '') return { from: from.id, to: { kind: 'point', position: null, ...withHeight } }
   if (/^\d+$/.test(toRaw)) {
     const to = nodes[Number(toRaw) - 1]
     return to && to.id !== from.id ? { from: from.id, to: { kind: 'node', id: to.id } } : null
   }
   const [lat, lng] = toRaw.split(',')
   const position = parseCoordinates(lat, lng)
-  return position ? { from: from.id, to: { kind: 'point', position } } : null
+  return position ? { from: from.id, to: { kind: 'point', position, ...withHeight } } : null
 }
 
 /** Parse a URL hash (with or without the leading #). Unknown or invalid values fall back to defaults. */
@@ -451,7 +460,9 @@ export function toHash(s: Settings): string {
     const to = s.link.to
     const toIndex = to.kind === 'node' ? s.nodes.findIndex((n) => n.id === to.id) + 1 : 0
     if (fromIndex > 0 && (to.kind === 'point' || toIndex > 0)) {
-      q.set('lk', `${fromIndex}:${to.kind === 'node' ? toIndex : to.position ? `${r(to.position.lat)},${r(to.position.lng)}` : ''}`)
+      const target = to.kind === 'node' ? String(toIndex) : to.position ? `${r(to.position.lat)},${r(to.position.lng)}` : ''
+      const height = to.kind === 'point' && to.heightM !== undefined ? `:${r(to.heightM, 3)}` : ''
+      q.set('lk', `${fromIndex}:${target}${height}`)
     }
   }
 
