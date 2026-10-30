@@ -30,6 +30,7 @@ jobs:
             package-lock.json
             planner/package-lock.json
       - run: npm ci
+      - run: npm test
       - name: Fetch live node data, sharded by country
         run: node scripts/pull-live-nodes.mjs public/regions
         continue-on-error: true # ship the deploy even if both upstream APIs are briefly down

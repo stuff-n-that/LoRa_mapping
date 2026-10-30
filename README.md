@@ -27,7 +27,24 @@ A separate app in [`planner/`](planner/README.md), published at `/plan/`: place 
 - **Clustered markers**: MeshCore and Meshtastic overlays cluster nearby nodes into a bubble showing the count, expanding as you zoom in (`disableClusteringAtZoom={14}`). Real data from the two networks combined is 80,000+ nodes — this isn't optional polish, it's what keeps the map from hanging or crashing at that scale, especially on mobile.
 - **Measure tools**: the "Measure" panel has two click-based tools — **Distance**: click once to place the start point, move the mouse, click again to place the end — and **Radius**: click once for the center, click again to set the radius. Both read out in kilometres and miles together, and both leave draggable yellow handles afterward (line endpoints; the circle's radius point) so you can refine the measurement without redrawing it from scratch. Starting a new measurement, or switching between the two tools, clears whatever was there before — only one measurement is ever shown at a time. Pure client-side great-circle math (`haversineDistanceKm`, already used for the local-node plausibility check below) — no new dependency.
 
-Ships with a small set of clearly-labelled sample nodes so the map isn't empty on first load — each can be removed via its popup's "Delete node" button. There's no add/import/export/reset UI; the map is read-only aside from that.
+Ships with a small set of clearly-labelled sample nodes so the map isn't empty on first load — each can be removed via its popup's "Delete node" button. Public records remain read-only. Users can add temporary local overlays using the file picker described below.
+
+## Temporary local overlays
+
+Open **Map layers → Your local overlays → Import local file**. Both accordions start collapsed. Importing a file collapses the controls again, shows a brief import summary, and fits the first imported layer on the map. On phones, the existing map-controls drawer closes too. Expand the section again to toggle a layer, change its colour, zoom to it, replace its file, remove it, or inspect omitted records.
+
+Supported formats:
+
+- **MeshCore snapshot JSON:** a `contacts` object keyed by full public key. Contact records use `adv_name`, `adv_lat`, `adv_lon`, `type`, and optionally `last_advert`. `self_info.name` supplies a layer name; `captured_at_utc` supplies the snapshot date. This includes the output of the MeshCore Python reader used to develop the feature, without depending on any particular user's device or filename.
+- **GeoJSON:** a `FeatureCollection` of `Point` features, in standard `[longitude, latitude]` order. Optional properties: `name`, `publicKey` (or `public_key`), `network`, `role`, and `lastAdvert`. Optional collection fields: `name` and `snapshotAt`. Features without a supported identity still plot in All sources.
+
+Limits: 5 MB per file, 10,000 records per file, and eight layers per tab. Missing coordinates, `0,0`, invalid coordinates, and non-point geometries are omitted with counts and a details list. Duplicate full identities retain the last usable position. An invalid replacement leaves the original layer intact. Layer colours and controls are independent of the public network switches and follow the existing node-type filter.
+
+**Privacy:** files are read using the browser's `File.text()` API, parsed locally, and kept only in React memory. There is no upload endpoint, browser-storage persistence, URL embedding, telemetry, or repository write for imported files. Normal public-data and basemap requests still occur. Refreshing or closing the page discards imported layers. Import normalization retains only fields needed for mapping; private keys, PINs, channel secrets and raw source records are not retained in layer state. Do not commit real device exports to this repository.
+
+**Comparison:** choose All sources, Both sources, Local only, or Public only. Matches use full MeshCore public keys against the currently loaded public regions and enabled local layers, after the node-type filter. Other identity formats are not yet compared and remain visible in All sources. A coloured ring denotes a shared identity; a solid marker denotes a local-only or unmatchable point. Matching positions differing by more than 100 metres are joined by a dashed line. Counts deduplicate identities, including across layers. A missing record does not establish that a radio never received it: contacts can be imported, old, filtered or limited by a full device table. Advertised timestamps are shown separately from snapshot capture times and may be inaccurate.
+
+Run `npm test` for the import and comparison checks; `npm run build` checks the production map build. Pull requests run both through the Check map workflow. No private radio data is included in tests or build assets.
 
 ## Development
 
